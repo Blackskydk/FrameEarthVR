@@ -1,0 +1,51 @@
+# PC VR manual test checklist
+
+Record GPU driver, Unity version, SteamVR version, OpenXR runtime, render scale, and test location with results.
+
+- [ ] SteamVR is reported as the current OpenXR runtime.
+- [ ] Vive head pose tracks position and rotation without an extra camera.
+- [ ] Both Index controllers track with correct handedness and pointing direction.
+- [ ] Dominant stick moves forward/backward and sideways relative to controller aim, including vertical flight.
+- [ ] Acceleration/deceleration is smooth and no roll accumulates during normal flight.
+- [ ] Reset produces an upright, comfortable view without teleporting position.
+- [ ] Either trigger drags Earth and releases without a jump.
+- [ ] The exact terrain feature selected at trigger-down remains attached to the pointer for the entire drag; it never slips to a neighboring point.
+- [ ] The controller pointer reaches the visible surface and stops at the selected terrain/building.
+- [ ] The pointer fades gradually and shows a stable ball at its surface intersection.
+- [ ] Both controller beams and their hit markers are white, translucent, and unobtrusive while remaining usable against the night sky.
+- [ ] Cone-dragging a building roughly 1 km away can place that exact building underneath the user in one continuous gesture.
+- [ ] Holding a distant cone drag steady does not magnify normal controller tracking noise into visible world wobble.
+- [ ] Moving the held controller forward/back without changing its angle produces a useful Earth drag, not merely centimetres of movement.
+- [ ] Trigger activates a pointed-at menu button without also dragging Earth.
+- [ ] Either grip yaws Earth around the user's head position without adding pitch or roll.
+- [ ] Grounded mode follows loaded geometry without placing the camera below it.
+- [ ] Aiming upward/downward while moving in Grounded mode continuously grows/shrinks the user with feet planted.
+- [ ] Upward/downward scale intent can be combined with forward travel without reversing the horizontal heading.
+- [ ] Pointing almost exactly down produces scaling without horizontal travel; tilting toward the horizon blends travel back in.
+- [ ] Repeated shrinking in Grounded mode never puts the tracking floor below the visible terrain.
+- [ ] Scaling down while aiming at a roof, building, or steep terrain never lets the tracking floor or camera clip through that surface; upward clearance happens immediately when a detailed tile replaces a coarse one.
+- [ ] Giant-scale Grounded movement covers geographic distance while retaining a walking-speed physical feel.
+- [ ] Grounded mode remains stable while a higher-resolution tile replaces a coarse tile.
+- [ ] Failed/unavailable height samples do not cause a fall or large snap.
+- [ ] Flight/grounded switching does not unexpectedly displace the user.
+- [ ] Holding the Steam Frame right shoulder in Flight mode produces an obvious speed boost and releasing it restores normal speed; it never starts or modifies Earth drag, rotation, or grounded scaling, and A does not boost.
+- [ ] Flight produces smooth soaring-wind audio that grows with normal and boosted speed, fades when stopping or entering Grounded mode, and has no audible clicks or short loop seam.
+- [ ] Pulling a distant terrain feature underneath the user never changes player height during the trigger hold.
+- [ ] In Grounded mode, forward motion converges on the terrain point under the pointer instead of passing over it.
+- [ ] The Sun can be trigger-dragged smoothly from sunrise through noon to sunset along a plausible location/date-specific arc.
+- [ ] A white path appears only when looking within about 10 degrees of the active body, becomes strongest near 3 degrees, fades away from that body along the arc, and never renders below/behind the horizon.
+- [ ] The Sun/Moon visibly enlarges when a controller is accurately aimed into its grab area and returns to normal size when aimed away.
+- [ ] Continuing a Sun drag below the horizon never falls through into Earth cone dragging before trigger release.
+- [ ] Sun, Moon, solar path, stars, and sky gradients align between both eyes in single-pass-instanced VR.
+- [ ] At night the Moon can be grabbed to move time back into daylight.
+- [ ] The nighttime Moon is easy to acquire and has a recognizably mottled, cratered lunar appearance.
+- [ ] Terrain illumination, shadows, ambient color, twilight, and stars respond continuously as the Sun crosses the horizon.
+- [ ] Wrist buttons can be selected by dominant-controller trigger.
+- [ ] The Steam Frame left View/pause button shows and hides the redesigned wrist menu, which starts hidden.
+- [ ] A new session starts near local solar noon rather than inheriting the computer's nighttime clock.
+- [ ] Google and all data-provider attribution remains visible and readable in both eyes.
+- [ ] Tiles unload after leaving an area; memory stabilizes near the configured cache target.
+- [ ] Distant terrain refines to the configured 10 px Frame / 6 px PC screen-space error without horizon fog culling.
+- [ ] Debug overlay reports plausible FPS, frame time, altitude, coordinates, memory, and load progress.
+- [ ] A representative 15-minute route sustains the target 90 Hz often enough for comfort; capture profiler evidence rather than assuming from GPU model.
+- [ ] Windows x64 player behaves the same as Play Mode.

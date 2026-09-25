@@ -1,0 +1,12 @@
+{
+  "name": "EarthVR.Tests",
+  "rootNamespace": "EarthVR.Tests",
+  "references": [
+    "EarthVR.Runtime"
+  ],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false,
+  "overrideReferences": false,
+  "noEngineReferences": false
+}

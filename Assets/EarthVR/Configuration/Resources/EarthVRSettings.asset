@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b1255b56fbf7654693e91a0e0470cd1, type: 3}
+  m_Name: EarthVRSettings
+  m_EditorClassIdentifier: EarthVR.Runtime::EarthVR.Configuration.EarthVRSettings
+  startLongitude: 12.5683
+  startLatitude: 55.6761
+  startHeightMeters: 300
+  minimumUserScale: 1
+  maximumUserScale: 100000
+  realEyeHeightMeters: 1.75
+  groundedScaleDoublingsPerSecond: 1.6
+  humanScaleSpeedMetersPerSecond: 1.8
+  maximumGeographicSpeedMetersPerSecond: 1500000
+  accelerationSeconds: 0.35
+  decelerationSeconds: 0.5
+  altitudeSpeedMultiplier: 18
+  scaleSpeedExponent: 0.65
+  boostSpeedMultiplier: 8
+  pointerDefaultLengthMeters: 25
+  pointerMaximumLengthMeters: 2000000
+  maximumGrabDistanceMeters: 2000000
+  coneDragSmoothingSeconds: 0.11
+  coneDragFastResponseSeconds: 0.02
+  coneDragFastResponseAngleDegrees: 2
+  maximumGrabTranslationGain: 250
+  dragMomentumEnabled: 1
+  dragMomentumDecaySeconds: 0.5
+  dragMomentumMinimumSpeedMetersPerSecond: 0.05
+  groundApproachSafetyMeters: 150
+  minimumApproachSpeedFraction: 0.15
+  boostEaseSeconds: 0.25
+  soaringWindMaximumVolume: 0.42
+  soaringWindResponseSeconds: 0.3
+  soaringWindFullSpeedMetersPerSecond: 18
+  comfortVignetteEnabled: 0
+  comfortVignetteStartSpeedMetersPerSecond: 1.5
+  comfortVignetteFullSpeedMetersPerSecond: 6
+  comfortVignetteMaximumAlpha: 0.85
+  comfortVignetteResponseSeconds: 0.25
+  groundClearanceMeters: 0.08
+  groundProbeDistanceMeters: 1500
+  groundCorrectionSeconds: 0.35
+  heightSampleIntervalSeconds: 1.5
+  searchArrivalHeightMeters: 2500
+  pcMaximumScreenSpaceError: 6
+  standaloneMaximumScreenSpaceError: 10
+  pcCacheMegabytes: 3072
+  standaloneCacheMegabytes: 1024
+  maximumSimultaneousTileLoads: 12
+  createPhysicsMeshes: 1
+  humanNearClipMeters: 0.03
+  geographicFarClipMeters: 20000000
+  pcRenderScale: 1
+  standaloneRenderScale: 0.9
+  pcMsaa: 2
+  standaloneMsaa: 2

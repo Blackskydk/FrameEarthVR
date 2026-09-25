@@ -1,0 +1,40 @@
+# Unity generated content
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+MemoryCaptures/
+Recordings/
+[Aa]ssets/_Recovery/
+[Aa]ssets/_Recovery.meta
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local secrets. Keep the example file committed.
+Assets/StreamingAssets/EarthVR/google-maps.local.json
+Assets/StreamingAssets/EarthVR/google-maps.local.json.meta
+Assets/StreamingAssets/EarthVR/cesium-ion.local.json
+Assets/StreamingAssets/EarthVR/cesium-ion.local.json.meta
+
+# Local builds and crash reports
+sysinfo.txt
+crashlytics-build.properties

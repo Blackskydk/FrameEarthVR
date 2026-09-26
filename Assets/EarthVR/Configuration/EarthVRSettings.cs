@@ -25,14 +25,12 @@ namespace EarthVR.Configuration
         [Min(1f)] public float scaleSpeedExponent = 0.65f;
         [Min(1f)] public float boostSpeedMultiplier = 8f;
 
-        [Header("Pointing and cone drag")]
+        [Header("Pointing and grab")]
         [Min(1f)] public float pointerDefaultLengthMeters = 25f;
         [Min(10f)] public float pointerMaximumLengthMeters = 2000000f;
         [Min(10f)] public float maximumGrabDistanceMeters = 2000000f;
-        [Min(0.01f)] public float coneDragSmoothingSeconds = 0.11f;
-        [Min(0.001f)] public float coneDragFastResponseSeconds = 0.02f;
-        [Min(0.05f)] public float coneDragFastResponseAngleDegrees = 2f;
-        [Min(1f)] public float maximumGrabTranslationGain = 250f;
+        [Min(0.05f)] public float grabGainReferenceDistanceMeters = 0.5f;
+        [Min(1f)] public float maximumGrabGain = 200f;
 
         [Header("Drag momentum")]
         public bool dragMomentumEnabled = true;

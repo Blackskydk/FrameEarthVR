@@ -17,23 +17,6 @@ namespace EarthVR.Scaling
     /// </summary>
     public sealed class WorldManipulationController : MonoBehaviour
     {
-        private const float EarthMeanRadiusMeters = 6371000f;
-
-        /// <summary>Per-hand cone-drag bookkeeping. One grabbed ECEF point never
-        /// changes for as long as that hand's trigger stays held.</summary>
-        private sealed class HandDragState
-        {
-            public bool HasAnchor;
-            public double3 AnchorEcef;
-            public Vector3 SmoothedOriginLocal;
-            public Vector3 SmoothedDirectionLocal;
-            public Vector3 GrabStartOriginLocal;
-            public float GrabDistanceUnity;
-            public float GrabTranslationGain;
-
-            public void Clear() => HasAnchor = false;
-        }
-
         private IEarthVRInput _input;
         private EarthVRSettings _settings;
         private EarthVRRig _rig;
@@ -43,9 +26,17 @@ namespace EarthVR.Scaling
         private Transform _left;
         private Transform _right;
 
-        private readonly HandDragState _leftDrag = new();
-        private readonly HandDragState _rightDrag = new();
-        private bool _twoHandActive;
+        // Only the right hand grabs the world. The grabbed ECEF point never
+        // changes for as long as the trigger stays held. Hand motion since the
+        // grab began is scaled by a fixed gain (set once, from how far away the
+        // grabbed point was) rather than re-projected along a ray each frame,
+        // so the feel stays simple and predictable: close things move almost
+        // 1:1 with the hand, distant things move proportionally more.
+        private bool _hasGrabAnchor;
+        private double3 _grabAnchorEcef;
+        private Vector3 _grabStartControllerLocal;
+        private Vector3 _grabStartOffsetLocal;
+        private float _grabGain;
 
         private Transform _rotationHand;
         private Quaternion _previousHandLocalRotation;
@@ -53,7 +44,7 @@ namespace EarthVR.Scaling
         private Vector3 _momentumVelocity;
 
         public float UserScale { get; private set; } = 1f;
-        public bool IsDraggingEarth => _leftDrag.HasAnchor || _rightDrag.HasAnchor;
+        public bool IsDraggingEarth => _hasGrabAnchor;
         public event System.Action<float> ScaleChanged;
 
         public void Initialize(
@@ -84,39 +75,24 @@ namespace EarthVR.Scaling
                 // Shoulder boost is reserved for Flight mode. Never allow an
                 // overlapping runtime binding to begin or continue world dragging,
                 // rotation, or grounded scale manipulation.
-                _leftDrag.Clear();
-                _rightDrag.Clear();
-                _twoHandActive = false;
+                _hasGrabAnchor = false;
                 _rotationHand = null;
                 return;
             }
 
-            var leftDragging = _input.LeftTriggerHeld && !IsHandBlocked(_left);
-            var rightDragging = _input.RightTriggerHeld && !IsHandBlocked(_right);
-
-            if (!leftDragging)
-                _leftDrag.Clear();
-            if (!rightDragging)
-                _rightDrag.Clear();
-            if (leftDragging || rightDragging)
-                _momentumVelocity = Vector3.zero;
-
-            if (leftDragging && rightDragging)
+            var dragging = _input.RightTriggerHeld && !IsHandBlocked(_right);
+            if (dragging)
             {
-                UpdateTwoHandDrag();
+                _momentumVelocity = Vector3.zero;
+                UpdateGrab();
             }
             else
             {
-                _twoHandActive = false;
-                if (rightDragging)
-                    UpdateSingleHandDrag(_right, _rightDrag);
-                else if (leftDragging)
-                    UpdateSingleHandDrag(_left, _leftDrag);
-                else
-                    ApplyMomentumDecay();
+                _hasGrabAnchor = false;
+                ApplyMomentumDecay();
             }
 
-            var rotationHand = !leftDragging && !rightDragging
+            var rotationHand = !dragging
                 ? ActiveHand(_input.LeftGripHeld, _input.RightGripHeld)
                 : null;
             if (rotationHand != null)
@@ -124,7 +100,7 @@ namespace EarthVR.Scaling
             else
                 _rotationHand = null;
 
-            if (!leftDragging && !rightDragging && rotationHand == null)
+            if (!dragging && rotationHand == null)
                 UpdateGroundedScale();
         }
 
@@ -139,211 +115,67 @@ namespace EarthVR.Scaling
             return leftHeld ? _left : null;
         }
 
-        private void UpdateSingleHandDrag(Transform hand, HandDragState state)
+        private void UpdateGrab()
         {
-            if (!state.HasAnchor)
+            if (!_hasGrabAnchor)
             {
-                TryBeginDrag(hand, state);
+                TryBeginGrab();
                 return;
             }
 
-            var rayOriginLocal = _rig.NavigationSpace.InverseTransformPoint(hand.position);
-            var rayDirectionLocal = _rig.NavigationSpace.InverseTransformDirection(hand.forward).normalized;
-            var smoothingSeconds = Mathf.Max(0.01f, _settings.coneDragSmoothingSeconds);
-
-            // Ignore sub-millimetre pose chatter before distance leverage can
-            // magnify it into visible globe movement.
-            var originError = rayOriginLocal - state.SmoothedOriginLocal;
-            var originErrorMagnitude = originError.magnitude;
-            var filteredOriginTarget = originErrorMagnitude <= 0.003f
-                ? state.SmoothedOriginLocal
-                : state.SmoothedOriginLocal +
-                  originError * ((originErrorMagnitude - 0.003f) / originErrorMagnitude);
-
-            var angularError = Vector3.Angle(state.SmoothedDirectionLocal, rayDirectionLocal);
-            var filteredDirectionTarget = angularError <= 0.16f
-                ? state.SmoothedDirectionLocal
-                : Vector3.Slerp(
-                    state.SmoothedDirectionLocal,
-                    rayDirectionLocal,
-                    (angularError - 0.16f) / angularError).normalized;
-
-            var deliberateMotion = Mathf.Max(
-                Mathf.InverseLerp(0.004f, 0.045f, originErrorMagnitude),
-                Mathf.InverseLerp(
-                0.16f,
-                Mathf.Max(0.06f, _settings.coneDragFastResponseAngleDegrees),
-                angularError));
-            var responseSeconds = Mathf.Lerp(
-                smoothingSeconds,
-                Mathf.Max(0.001f, _settings.coneDragFastResponseSeconds),
-                deliberateMotion);
-            var filter = 1f - Mathf.Exp(-Time.deltaTime / responseSeconds);
-            state.SmoothedOriginLocal = Vector3.Lerp(state.SmoothedOriginLocal, filteredOriginTarget, filter);
-            state.SmoothedDirectionLocal = Vector3.Slerp(
-                state.SmoothedDirectionLocal,
-                filteredDirectionTarget,
-                filter).normalized;
-
-            // The initially selected ECEF point never changes. Pushing or pulling
-            // the controller changes its distance along the current pointer ray,
-            // so the same terrain point remains the thing attached to the pointer.
-            var handDepthDelta = Vector3.Dot(
-                state.SmoothedOriginLocal - state.GrabStartOriginLocal,
-                state.SmoothedDirectionLocal);
-            var distanceAlongRay = Mathf.Clamp(
-                state.GrabDistanceUnity + handDepthDelta * state.GrabTranslationGain,
-                0.05f,
-                Mathf.Max(state.GrabDistanceUnity * 4f, 1f));
-            var desiredGrabLocal = state.SmoothedOriginLocal +
-                                   state.SmoothedDirectionLocal * distanceAlongRay;
-            var currentGrabWorld = EcefToWorld(state.AnchorEcef);
-            var targetNavigationPosition = currentGrabWorld -
-                                           _rig.NavigationSpace.rotation * desiredGrabLocal;
+            // Recomputed fresh from the grab-start reference every frame (not
+            // incrementally), so there is no drift: how far the hand has moved
+            // since the grab began, times the fixed gain set at grab time.
+            var previousPosition = _rig.NavigationSpace.position;
+            var controllerLocal = _rig.NavigationSpace.InverseTransformPoint(_right.position);
+            var handDelta = controllerLocal - _grabStartControllerLocal;
+            var desiredLocal = _grabStartControllerLocal + _grabStartOffsetLocal + handDelta * _grabGain;
+            var anchorWorld = EcefToWorld(_grabAnchorEcef);
+            var targetPosition = anchorWorld - _rig.NavigationSpace.rotation * desiredLocal;
 
             // Treat this as pulling the Earth beneath the user, not pulling the
             // user up the controller ray. The selected ECEF feature remains the
             // horizontal anchor while player height is left untouched.
-            targetNavigationPosition.y = _rig.NavigationSpace.position.y;
-
-            // Solve exactly rather than easing the world afterward. A second world
-            // filter visibly allowed the selected terrain feature to slip away.
-            var previousPosition = _rig.NavigationSpace.position;
-            _rig.NavigationSpace.position = targetNavigationPosition;
+            targetPosition.y = _rig.NavigationSpace.position.y;
+            _rig.NavigationSpace.position = targetPosition;
             TrackMomentum(previousPosition);
         }
 
-        private void UpdateTwoHandDrag()
-        {
-            if (!_leftDrag.HasAnchor)
-                TryBeginDrag(_left, _leftDrag);
-            if (!_rightDrag.HasAnchor)
-                TryBeginDrag(_right, _rightDrag);
-            if (!_leftDrag.HasAnchor || !_rightDrag.HasAnchor)
-            {
-                _twoHandActive = false;
-                return;
-            }
-
-            _twoHandActive = true;
-            var previousPosition = _rig.NavigationSpace.position;
-
-            var handSeparation = Vector3.ProjectOnPlane(_right.position - _left.position, Vector3.up);
-            var handDistance = handSeparation.magnitude;
-
-            var leftMapped = EcefToWorld(_leftDrag.AnchorEcef);
-            var rightMapped = EcefToWorld(_rightDrag.AnchorEcef);
-            var mappedSeparation = Vector3.ProjectOnPlane(rightMapped - leftMapped, Vector3.up);
-            var mappedDistance = mappedSeparation.magnitude;
-
-            // Uniform scale: make the two grabbed points' current separation match
-            // the controllers' actual separation, pivoting on the anchor midpoint
-            // so both points stay glued as close as possible while resizing.
-            if (handDistance > 0.001f && mappedDistance > 0.001f)
-            {
-                var requestedScale = UserScale * mappedDistance / handDistance;
-                var pivotEcef = MidpointEcef(_leftDrag.AnchorEcef, _rightDrag.AnchorEcef);
-                SetUserScale(requestedScale, pivotEcef);
-                leftMapped = EcefToWorld(_leftDrag.AnchorEcef);
-                rightMapped = EcefToWorld(_rightDrag.AnchorEcef);
-                mappedSeparation = Vector3.ProjectOnPlane(rightMapped - leftMapped, Vector3.up);
-            }
-
-            // Yaw: twist the observer, exactly, so the grabbed points' bearing
-            // matches the controllers' current bearing every frame. Rotating the
-            // observer around its own camera (rather than the Earth, which never
-            // moves) is the same trick the single-hand grip rotation already uses.
-            var mappedBearing = Mathf.Atan2(mappedSeparation.x, mappedSeparation.z) * Mathf.Rad2Deg;
-            var handBearing = Mathf.Atan2(handSeparation.x, handSeparation.z) * Mathf.Rad2Deg;
-            var yawDelta = Mathf.DeltaAngle(handBearing, mappedBearing);
-            if (Mathf.Abs(yawDelta) > 0.001f)
-                _rig.NavigationSpace.RotateAround(_rig.Camera.transform.position, Vector3.up, yawDelta);
-
-            // Translation is solved last and exactly, same philosophy as the
-            // one-hand drag: the midpoint of both grabbed points lands under the
-            // midpoint of both hands with no residual drift.
-            var midpointMapped = (leftMapped + rightMapped) * 0.5f;
-            var midpointHands = (_left.position + _right.position) * 0.5f;
-            var translation = midpointHands - midpointMapped;
-            translation.y = 0f;
-            _rig.NavigationSpace.position += translation;
-
-            TrackMomentum(previousPosition);
-        }
-
-        private void TryBeginDrag(Transform hand, HandDragState state)
+        private void TryBeginGrab()
         {
             var maximumDistance = ScaleMath.GeographicToUnityMeters(
                 _settings.maximumGrabDistanceMeters,
                 UserScale);
 
-            Vector3 grabPoint;
-            if (Physics.Raycast(
-                    hand.position,
-                    hand.forward,
+            // Require an actual physics surface. No sky, ocean-less gap, or
+            // open-space aim should ever be grabbable.
+            if (!Physics.Raycast(
+                    _right.position,
+                    _right.forward,
                     out var hit,
                     maximumDistance,
                     Physics.DefaultRaycastLayers,
-                    QueryTriggerInteraction.Ignore) &&
-                hit.collider.GetComponent<WorldSpaceButton>() == null &&
-                hit.collider.GetComponent<CelestialDragHandle>() == null)
-            {
-                grabPoint = hit.point;
-            }
-            else if (TryIntersectPlanet(hand.position, hand.forward, out var ellipsoidPoint))
-            {
-                // No physics surface under the ray (open ocean, a tile-loading gap,
-                // or aiming past the horizon into space). Fall back to where the
-                // ray crosses the planet so a grab practically never fails.
-                grabPoint = ellipsoidPoint;
-            }
-            else
-            {
+                    QueryTriggerInteraction.Ignore) ||
+                hit.collider.GetComponent<WorldSpaceButton>() != null ||
+                hit.collider.GetComponent<CelestialDragHandle>() != null)
                 return;
-            }
 
-            state.AnchorEcef = WorldToEcef(grabPoint);
-            var originLocal = _rig.NavigationSpace.InverseTransformPoint(hand.position);
-            var hitLocal = _rig.NavigationSpace.InverseTransformPoint(grabPoint);
-            state.GrabDistanceUnity = Mathf.Max(0.05f, Vector3.Distance(originLocal, hitLocal));
-            state.SmoothedOriginLocal = originLocal;
-            state.SmoothedDirectionLocal = (hitLocal - originLocal).normalized;
-            state.GrabStartOriginLocal = originLocal;
+            _grabAnchorEcef = WorldToEcef(hit.point);
+            var controllerLocal = _rig.NavigationSpace.InverseTransformPoint(_right.position);
+            var hitLocal = _rig.NavigationSpace.InverseTransformPoint(hit.point);
+            _grabStartControllerLocal = controllerLocal;
+            _grabStartOffsetLocal = hitLocal - controllerLocal;
 
-            // Soft saturation instead of a hard clamp: gain tracks grab distance
-            // closely at first, then eases toward the configured maximum instead
-            // of abruptly running out once a hold reaches it.
-            var rawGain = state.GrabDistanceUnity / 0.8f;
-            var maxGain = Mathf.Max(1f, _settings.maximumGrabTranslationGain);
-            state.GrabTranslationGain = maxGain * (float)System.Math.Tanh(rawGain / maxGain);
-            state.HasAnchor = true;
-        }
-
-        private bool TryIntersectPlanet(Vector3 origin, Vector3 direction, out Vector3 point)
-        {
-            point = Vector3.zero;
-            var centerWorld = EcefToWorld(double3.zero);
-            var radius = ScaleMath.GeographicToUnityMeters(EarthMeanRadiusMeters, UserScale);
-            if (radius <= 0f)
-                return false;
-
-            var normalizedDirection = direction.normalized;
-            var toCenter = origin - centerWorld;
-            var b = Vector3.Dot(toCenter, normalizedDirection);
-            var c = toCenter.sqrMagnitude - radius * radius;
-            var discriminant = b * b - c;
-            if (discriminant < 0f)
-                return false;
-
-            var sqrtDiscriminant = Mathf.Sqrt(discriminant);
-            var t = -b - sqrtDiscriminant;
-            if (t < 0f)
-                t = -b + sqrtDiscriminant;
-            if (t < 0f)
-                return false;
-
-            point = origin + normalizedDirection * t;
-            return true;
+            // Gain of 1 out to arm's length, then scales up with distance so a
+            // far-away point can still be dragged a long way without needing to
+            // scale up first — clamped so it never runs away to something
+            // unmanageable.
+            var grabDistance = Vector3.Distance(controllerLocal, hitLocal);
+            _grabGain = Mathf.Clamp(
+                grabDistance / Mathf.Max(0.05f, _settings.grabGainReferenceDistanceMeters),
+                1f,
+                Mathf.Max(1f, _settings.maximumGrabGain));
+            _hasGrabAnchor = true;
         }
 
         private void TrackMomentum(Vector3 previousPosition)
@@ -450,8 +282,6 @@ namespace EarthVR.Scaling
             _navigation.UserScale = clamped;
             ScaleChanged?.Invoke(UserScale);
         }
-
-        private static double3 MidpointEcef(double3 a, double3 b) => (a + b) * 0.5;
 
         private double3 CameraPivotEcef()
         {

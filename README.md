@@ -55,6 +55,10 @@ The project can build a native standalone Android/ARM64 APK for Steam Frame thro
 
 The APK is written to `Builds/SteamFrame/FrameEarthVR.apk`. See the [complete Steam Frame build and installation guide](docs/STEAM_FRAME_MIGRATION.md) for Wi-Fi, USB, validation, profiling, and troubleshooting.
 
+For a one-click development build and Wi-Fi install, close the Unity Editor, launch
+`Build-and-Install-Steam-Frame.cmd`, and keep Lepton Development running on the headset.
+The launcher pauses when finished so build or connection errors remain visible.
+
 ## Project layout
 
 - `Core`: bootstrap, tracking rig, extension interfaces

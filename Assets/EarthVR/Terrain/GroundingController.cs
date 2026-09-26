@@ -37,7 +37,27 @@ namespace EarthVR.Terrain
             _scaling = scaling;
             _georeference = georeference;
             _tileset = tileset;
+            _navigation.State.ModeChanged += OnModeChanged;
             StartCoroutine(SampleHeightLoop());
+        }
+
+        private void OnDestroy()
+        {
+            if (_navigation != null)
+                _navigation.State.ModeChanged -= OnModeChanged;
+        }
+
+        private void OnModeChanged(MovementMode mode)
+        {
+            if (mode != MovementMode.Grounded)
+                return;
+
+            // Become human scale but stay at whatever altitude Flight mode left
+            // the viewer at — SetUserScale keeps the current position (the
+            // pivot) fixed in world space, it only changes the scale factor.
+            // No forced snap to the literal ground here: that would fight the
+            // "I want to be at the height I'm currently at" ask below.
+            _scaling.SetUserScale(1f);
         }
 
         private void LateUpdate()
@@ -52,31 +72,22 @@ namespace EarthVR.Terrain
                 _verticalVelocity = 0f;
                 return;
             }
+            if (!_navigation.IsActivelyMoving)
+            {
+                // Only follow terrain height while the thumbstick is actually
+                // driving travel. Otherwise physically stepping around a room-
+                // scale play area — or just standing still — must never cause an
+                // automatic climb onto whatever happens to be underneath.
+                return;
+            }
 
-            var scale = _scaling.UserScale;
-            var probeDistance = ScaleMath.GeographicToUnityMeters(_settings.groundProbeDistanceMeters, scale);
-            var cameraPosition = _rig.Camera.transform.position;
-            var start = cameraPosition + Vector3.up * Mathf.Max(2f, probeDistance * 0.25f);
-            float? surfaceY = null;
-            if (Physics.Raycast(start, Vector3.down, out var hit, Mathf.Max(10f, probeDistance * 1.5f)))
-                surfaceY = hit.point.y;
-            else if (_sampledSurfaceEcef.HasValue)
-                surfaceY = EcefToWorld(_sampledSurfaceEcef.Value).y;
-
-            if (!surfaceY.HasValue)
+            if (!TryComputeDesiredFloor(out var desiredFloor))
             {
                 HasGroundSolution = false;
                 return;
             }
 
             HasGroundSolution = true;
-            // Keep a small physical buffer even at giant scales. The geographic
-            // clearance can otherwise become sub-millimetre in Unity space and
-            // lose the precision battle against streamed photogrammetry meshes.
-            var clearanceUnity = Mathf.Max(
-                0.015f,
-                ScaleMath.GeographicToUnityMeters(_settings.groundClearanceMeters, scale));
-            var desiredFloor = surfaceY.Value + clearanceUnity;
             var currentFloor = _rig.TrackingOrigin.position.y;
             float corrected;
             if (desiredFloor > currentFloor)
@@ -96,6 +107,38 @@ namespace EarthVR.Terrain
                     _settings.groundCorrectionSeconds);
             }
             _rig.NavigationSpace.position += Vector3.up * (corrected - currentFloor);
+        }
+
+        private bool TryComputeDesiredFloor(out float desiredFloor)
+        {
+            desiredFloor = 0f;
+            var scale = _scaling.UserScale;
+            var probeDistance = ScaleMath.GeographicToUnityMeters(_settings.groundProbeDistanceMeters, scale);
+            // Probe below the tracking floor, not the camera. The camera moves
+            // with real head/room tracking, which would otherwise re-sample
+            // terrain height (and climb onto a nearby roof or wall) from mere
+            // physical stepping. TrackingOrigin only moves from deliberate
+            // navigation (thumbstick travel, grab, or this controller's own
+            // correction), which is the only thing that should re-probe.
+            var trackingOriginPosition = _rig.TrackingOrigin.position;
+            var start = trackingOriginPosition + Vector3.up * Mathf.Max(2f, probeDistance * 0.25f);
+            float? surfaceY = null;
+            if (Physics.Raycast(start, Vector3.down, out var hit, Mathf.Max(10f, probeDistance * 1.5f)))
+                surfaceY = hit.point.y;
+            else if (_sampledSurfaceEcef.HasValue)
+                surfaceY = EcefToWorld(_sampledSurfaceEcef.Value).y;
+
+            if (!surfaceY.HasValue)
+                return false;
+
+            // Keep a small physical buffer even at giant scales. The geographic
+            // clearance can otherwise become sub-millimetre in Unity space and
+            // lose the precision battle against streamed photogrammetry meshes.
+            var clearanceUnity = Mathf.Max(
+                0.015f,
+                ScaleMath.GeographicToUnityMeters(_settings.groundClearanceMeters, scale));
+            desiredFloor = surfaceY.Value + clearanceUnity;
+            return true;
         }
 
         private IEnumerator SampleHeightLoop()

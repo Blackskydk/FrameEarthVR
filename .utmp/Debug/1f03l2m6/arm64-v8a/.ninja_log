@@ -1,0 +1,12 @@
+# ninja log v5
+96	360	8120769616214129	FramePacing/CMakeFiles/swappywrapper.dir/UnitySwappyWrapper.cpp.o	754ff020ae385a72
+361	587	8120769618377524	C:/Users/black/OneDrive/Dokumenter/ChatGPT/FrameEarthVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/Debug/1f03l2m6/obj/arm64-v8a/libswappywrapper.so	ea5f29a7e86ba674
+88	908	8120769621612660	GameActivity/CMakeFiles/game.dir/UGAInputKeyEvent.cpp.o	c58c4b31f3c6a700
+23	914	8120769621612660	GameActivity/CMakeFiles/game.dir/UGAEntry.cpp.o	bd2b112896f721a4
+1	916	8120769621647703	GameActivity/CMakeFiles/game.dir/UGAConfiguration.cpp.o	e754183a3203f55c
+50	927	8120769621848494	GameActivity/CMakeFiles/game.dir/UGAInputMotionEvent.cpp.o	bfb1b5450aa0657e
+30	930	8120769621883650	GameActivity/CMakeFiles/game.dir/UGADebug.cpp.o	7fa77c1807f764a5
+15	1012	8120769622671785	GameActivity/CMakeFiles/game.dir/UGAInput.cpp.o	5c9458ce01e50ef4
+8	1035	8120769622938792	GameActivity/CMakeFiles/game.dir/UGAApplication.cpp.o	3ff6e72aeda59ee4
+73	1040	8120769622985884	GameActivity/CMakeFiles/game.dir/UGASoftKeyboard.cpp.o	d43558b56ce2ad3b
+1040	1156	8120769624151162	C:/Users/black/OneDrive/Dokumenter/ChatGPT/FrameEarthVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/Debug/1f03l2m6/obj/arm64-v8a/libgame.so	111ec6c8d88442ac

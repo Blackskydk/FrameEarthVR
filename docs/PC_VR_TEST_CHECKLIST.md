@@ -8,14 +8,15 @@ Record GPU driver, Unity version, SteamVR version, OpenXR runtime, render scale,
 - [ ] Dominant stick moves forward/backward and sideways relative to controller aim, including vertical flight.
 - [ ] Acceleration/deceleration is smooth and no roll accumulates during normal flight.
 - [ ] Reset produces an upright, comfortable view without teleporting position.
-- [ ] Either trigger drags Earth and releases without a jump.
-- [ ] The exact terrain feature selected at trigger-down remains attached to the pointer for the entire drag; it never slips to a neighboring point.
+- [ ] The right trigger drags Earth and releases with a brief, decaying momentum carry, not a jump.
+- [ ] The left trigger never grabs or drags Earth under any circumstance.
+- [ ] The exact terrain feature selected at trigger-down remains attached to the controller for the entire drag; it never slips to a neighboring point.
 - [ ] The controller pointer reaches the visible surface and stops at the selected terrain/building.
 - [ ] The pointer fades gradually and shows a stable ball at its surface intersection.
 - [ ] Both controller beams and their hit markers are white, translucent, and unobtrusive while remaining usable against the night sky.
-- [ ] Cone-dragging a building roughly 1 km away can place that exact building underneath the user in one continuous gesture.
-- [ ] Holding a distant cone drag steady does not magnify normal controller tracking noise into visible world wobble.
-- [ ] Moving the held controller forward/back without changing its angle produces a useful Earth drag, not merely centimetres of movement.
+- [ ] Grabbing a nearby point (within arm's reach) and moving the hand moves that point by close to the same real-world distance — it should feel like directly holding the ground, not an amplified or laggy drag.
+- [ ] Grabbing a point that was farther away when grabbed moves proportionally more per centimetre of real hand motion, scaling up smoothly with initial grab distance rather than jumping.
+- [ ] Aiming at open sky, an unloaded tile gap, or past the horizon never grabs anything.
 - [ ] Trigger activates a pointed-at menu button without also dragging Earth.
 - [ ] Either grip yaws Earth around the user's head position without adding pitch or roll.
 - [ ] Grounded mode follows loaded geometry without placing the camera below it.
@@ -27,7 +28,9 @@ Record GPU driver, Unity version, SteamVR version, OpenXR runtime, render scale,
 - [ ] Giant-scale Grounded movement covers geographic distance while retaining a walking-speed physical feel.
 - [ ] Grounded mode remains stable while a higher-resolution tile replaces a coarse tile.
 - [ ] Failed/unavailable height samples do not cause a fall or large snap.
-- [ ] Flight/grounded switching does not unexpectedly displace the user.
+- [ ] Switching Flight → Grounded keeps the viewer at the same altitude/eye-height they were at in Flight, becoming human scale (1x) without teleporting down to the literal ground.
+- [ ] In Grounded mode, physically walking around a room-scale play area never changes tracking-floor height or climbs onto a nearby roof, wall, or curb — only moving the thumbstick does.
+- [ ] In Grounded mode, moving the thumbstick over a building or rise in terrain does lift the tracking floor onto it, as expected for deliberate travel.
 - [ ] Holding the Steam Frame right shoulder in Flight mode produces an obvious speed boost and releasing it restores normal speed; it never starts or modifies Earth drag, rotation, or grounded scaling, and A does not boost.
 - [ ] Flight produces smooth soaring-wind audio that grows with normal and boosted speed, fades when stopping or entering Grounded mode, and has no audible clicks or short loop seam.
 - [ ] Pulling a distant terrain feature underneath the user never changes player height during the trigger hold.
@@ -40,8 +43,9 @@ Record GPU driver, Unity version, SteamVR version, OpenXR runtime, render scale,
 - [ ] At night the Moon can be grabbed to move time back into daylight.
 - [ ] The nighttime Moon is easy to acquire and has a recognizably mottled, cratered lunar appearance.
 - [ ] Terrain illumination, shadows, ambient color, twilight, and stars respond continuously as the Sun crosses the horizon.
-- [ ] Wrist buttons can be selected by dominant-controller trigger.
-- [ ] The Steam Frame left View/pause button shows and hides the redesigned wrist menu, which starts hidden.
+- [ ] Floating menu buttons can be selected by dominant-controller trigger, including at the edges of each button's padded hit area.
+- [ ] The Steam Frame left View/pause button shows and hides the floating menu, which starts hidden and summons upright a fixed distance in front of the current head direction each time it opens, rather than appearing on a hand.
+- [ ] The floating menu does not drift or rotate to chase the head while it stays open; it also does not move at all from physically stepping around the play area.
 - [ ] A new session starts near local solar noon rather than inheriting the computer's nighttime clock.
 - [ ] Google and all data-provider attribution remains visible and readable in both eyes.
 - [ ] Tiles unload after leaving an area; memory stabilizes near the configured cache target.

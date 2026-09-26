@@ -67,7 +67,20 @@ if ($LASTEXITCODE -ne 0) {
 
 if (-not $NoLaunch) {
     Write-Host 'Launching Frame Earth VR...'
-    & $adb -s $serial shell monkey -p com.frameearthvr.app -c android.intent.category.LAUNCHER 1 | Out-Null
+    $resolvedActivities = & $adb -s $serial shell cmd package resolve-activity --brief `
+        -c android.intent.category.LAUNCHER com.frameearthvr.app
+    $resolveExitCode = $LASTEXITCODE
+    $launcherActivity = $resolvedActivities |
+        Where-Object { $_ -match '^com\.frameearthvr\.app/.+' } |
+        Select-Object -Last 1
+
+    if ($resolveExitCode -eq 0 -and $launcherActivity) {
+        & $adb -s $serial shell am start -W -n $launcherActivity
+    }
+    else {
+        & $adb -s $serial shell monkey -p com.frameearthvr.app -c android.intent.category.LAUNCHER 1 | Out-Null
+    }
+
     if ($LASTEXITCODE -ne 0) {
         Write-Warning 'The APK installed, but automatic launch failed. Start Frame Earth VR from the Lepton library.'
     }

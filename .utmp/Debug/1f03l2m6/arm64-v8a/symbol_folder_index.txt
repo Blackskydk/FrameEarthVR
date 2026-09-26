@@ -1,0 +1,1 @@
+C:\Users\black\OneDrive\Dokumenter\ChatGPT\FrameEarthVR\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\build\intermediates\cxx\Debug\1f03l2m6\obj\arm64-v8a

@@ -29,10 +29,8 @@ MonoBehaviour:
   pointerDefaultLengthMeters: 25
   pointerMaximumLengthMeters: 2000000
   maximumGrabDistanceMeters: 2000000
-  coneDragSmoothingSeconds: 0.11
-  coneDragFastResponseSeconds: 0.02
-  coneDragFastResponseAngleDegrees: 2
-  maximumGrabTranslationGain: 250
+  grabGainReferenceDistanceMeters: 0.5
+  maximumGrabGain: 200
   dragMomentumEnabled: 1
   dragMomentumDecaySeconds: 0.5
   dragMomentumMinimumSpeedMetersPerSecond: 0.05

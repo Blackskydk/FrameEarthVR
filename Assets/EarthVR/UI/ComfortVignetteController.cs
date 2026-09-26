@@ -27,23 +27,24 @@ namespace EarthVR.UI
             _navigation = navigation;
             Enabled = settings.comfortVignetteEnabled;
 
-            var canvasObject = new GameObject(
-                "Comfort Vignette Canvas",
-                typeof(Canvas),
-                typeof(CanvasScaler));
+            // Screen Space - Camera canvases do not reliably render under XR's
+            // stereo single-pass rendering (the same reason the wrist menu is a
+            // World Space canvas). Use a World Space quad parented to the camera
+            // instead, sized generously so it comfortably covers any headset's
+            // field of view regardless of exact FOV/aspect.
+            var canvasObject = new GameObject("Comfort Vignette Canvas", typeof(Canvas));
             canvasObject.transform.SetParent(rig.Camera.transform, false);
+            canvasObject.transform.localPosition = new Vector3(0f, 0f, 0.4f);
+            canvasObject.transform.localRotation = Quaternion.identity;
+            canvasObject.transform.localScale = Vector3.one * 2.2f;
             var canvas = canvasObject.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.renderMode = RenderMode.WorldSpace;
             canvas.worldCamera = rig.Camera;
-            canvas.planeDistance = 0.15f;
 
             var imageObject = new GameObject("Vignette", typeof(RectTransform), typeof(Image));
             imageObject.transform.SetParent(canvasObject.transform, false);
             var rect = imageObject.GetComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
+            rect.sizeDelta = Vector2.one;
 
             _vignetteImage = imageObject.GetComponent<Image>();
             _vignetteImage.sprite = CreateVignetteSprite();

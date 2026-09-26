@@ -83,10 +83,11 @@ namespace EarthVR.Navigation
             var fly = _input.Fly;
             // The Frame shoulder is an exclusive flight boost. Some runtimes may
             // expose overlapping generic controller usages, so boost wins over any
-            // simultaneous grab-looking state.
+            // simultaneous grab-looking state. Only the right trigger grabs the
+            // world now, so the left trigger no longer freezes flight either.
             var manipulatingWorld = !_input.BoostHeld &&
                                     (_input.LeftGripHeld || _input.RightGripHeld ||
-                                     _input.LeftTriggerHeld || _input.RightTriggerHeld);
+                                     _input.RightTriggerHeld);
             if (manipulatingWorld)
             {
                 _currentGeographicSpeed = 0f;
@@ -137,7 +138,10 @@ namespace EarthVR.Navigation
 
             // Damp the target speed as terrain approaches below so a fast, low
             // flight path eases off instead of auguring straight into a hillside.
-            if (_state.Mode == MovementMode.Flight)
+            // Boost is an explicit, deliberate request for maximum speed, so this
+            // safety net steps aside rather than fighting it — otherwise boost
+            // could read as doing nothing whenever flown low over terrain.
+            if (_state.Mode == MovementMode.Flight && !_input.BoostHeld)
                 targetSpeed *= ComputeGroundApproachSpeedFraction();
 
             var damping = Mathf.Abs(targetSpeed) > Mathf.Abs(_currentGeographicSpeed)

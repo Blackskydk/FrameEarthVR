@@ -202,7 +202,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c81b5ac837e647448a68cbd24e410b42, type: 3}
   m_Name: ValveOpenXRFoveatedRenderingFeature Android
   m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRFoveatedRenderingFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: 'Valve Utils: Settings for Unity''s Foveated Rendering'
   version: 0.1.0
   featureIdInternal: com.valvesoftware.openxr.utils.foveated_rendering
@@ -213,8 +213,8 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  applySettingsOnStartup: 0
-  initialFoveationLevel: 0
+  applySettingsOnStartup: 1
+  initialFoveationLevel: 0.5
   initialUseEyeTracking: 0
 --- !u!114 &-4797779949494108539
 MonoBehaviour:
@@ -427,7 +427,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: feeef8d85de8db242bdda70cc7ff5acd, type: 3}
   m_Name: OculusTouchControllerProfile Android
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.Features.Interactions.OculusTouchControllerProfile
-  m_enabled: 0
+  m_enabled: 1
   nameUi: Oculus Touch Controller Profile
   version: 0.0.1
   featureIdInternal: com.unity.openxr.feature.input.oculustouch
@@ -493,7 +493,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ac65e183df5ca334bbde9784d27da199, type: 3}
   m_Name: ValveOpenXRLeptonValidationFeature Android
   m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRLeptonValidationFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: 'Valve Utils: Lepton Validation'
   version: 0.1.0
   featureIdInternal: com.valvesoftware.openxr.utils.validation
@@ -644,7 +644,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f6a75d1f5ff90154ea2a8e58222a1f59, type: 3}
   m_Name: FoveatedRenderingFeature Android
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.Features.FoveatedRenderingFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: Foveated Rendering
   version: 1
   featureIdInternal: com.unity.openxr.feature.foveatedrendering
@@ -753,7 +753,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 713330c9b2521f04aac11d35751d76bf, type: 3}
   m_Name: ValveOpenXRSupportFeature Android
   m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRSupportFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: 'Valve Utils: Settings for Unity''s Rendering'
   version: 0.1.0
   featureIdInternal: com.valvesoftware.openxr.utils.support
@@ -763,8 +763,8 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  optimizeBufferDiscards: 0
-  lateLatchingMode: 0
+  optimizeBufferDiscards: 1
+  lateLatchingMode: 1
   lateLatchingDebug: 0
 --- !u!114 &903486056696961901
 MonoBehaviour:
@@ -1080,7 +1080,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9225d86dbe80df459396f79903d44df, type: 3}
   m_Name: ValveOpenXRRenderRegionsFeature Android
   m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRRenderRegionsFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: 'Valve Utils: Settings for Unity''s Render Regions'
   version: 0.1.0
   featureIdInternal: com.valvesoftware.openxr.utils.render_regions
@@ -1090,9 +1090,9 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  symmetricProjection: 0
+  symmetricProjection: 1
   optimizeMultiviewRenderRegions: 0
-  multiviewRenderRegionsOptimizationMode: 0
+  multiviewRenderRegionsOptimizationMode: 2
   m_hasMigratedMultiviewRenderRegions: 0
 --- !u!114 &7789712580825697627
 MonoBehaviour:
@@ -1230,10 +1230,10 @@ MonoBehaviour:
     m_List: 00000000
   m_depthSubmissionMode: 0
   m_spacewarpMotionVectorTextureFormat: 0
-  m_optimizeBufferDiscards: 0
-  m_symmetricProjection: 0
-  m_optimizeMultiviewRenderRegions: 0
-  m_multiviewRenderRegionsOptimizationMode: 0
+  m_optimizeBufferDiscards: 1
+  m_symmetricProjection: 1
+  m_optimizeMultiviewRenderRegions: 1
+  m_multiviewRenderRegionsOptimizationMode: 2
   m_hasMigratedMultiviewRenderRegionSetting: 1
-  m_foveatedRenderingApi: 0
-  m_useOpenXRPredictedTime: 0
+  m_foveatedRenderingApi: 1
+  m_useOpenXRPredictedTime: 1

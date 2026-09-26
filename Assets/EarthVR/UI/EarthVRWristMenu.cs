@@ -13,23 +13,33 @@ using UnityEngine.UI;
 
 namespace EarthVR.UI
 {
+    /// <summary>
+    /// A floating panel summoned in front of the viewer (not attached to a
+    /// hand). Opening it re-anchors it a comfortable distance in front of
+    /// wherever the head is currently looking; it then stays put in the world
+    /// until closed and reopened, rather than chasing the head every frame.
+    /// </summary>
     public sealed class EarthVRWristMenu : MonoBehaviour
     {
         private const float UiRefreshIntervalSeconds = 0.25f;
-        private static readonly Color BackgroundColor = new(0.018f, 0.032f, 0.058f, 0.97f);
-        private static readonly Color CardColor = new(0.035f, 0.075f, 0.115f, 0.94f);
-        private static readonly Color ButtonColor = new(0.045f, 0.16f, 0.23f, 0.98f);
-        private static readonly Color AccentColor = new(0.22f, 0.82f, 1f, 1f);
-        private static readonly Color MutedTextColor = new(0.64f, 0.75f, 0.84f, 1f);
+        private const float SummonDistanceMeters = 0.85f;
+        private const float SummonDownOffsetMeters = 0.08f;
+        private static readonly Color BackgroundColor = new(0.02f, 0.035f, 0.062f, 0.97f);
+        private static readonly Color CardColor = new(0.04f, 0.085f, 0.128f, 0.94f);
+        private static readonly Color ButtonColor = new(0.05f, 0.18f, 0.25f, 0.98f);
+        private static readonly Color AccentColor = new(0.28f, 0.86f, 1f, 1f);
+        private static readonly Color MutedTextColor = new(0.66f, 0.77f, 0.86f, 1f);
         private static Sprite _roundedSprite;
         private static Texture2D _roundedTexture;
         private IEarthVRInput _input;
         private EarthVRSettings _settings;
+        private EarthVRRig _rig;
         private NavigationController _navigation;
         private WorldManipulationController _scaling;
         private CesiumEarthProvider _earth;
         private IGeocodingProvider _geocoder;
         private ComfortVignetteController _vignette;
+        private ISystemKeyboardProvider _keyboardProvider;
         private Text _vignetteButtonLabel;
         private Canvas _canvas;
         private GameObject _mainPanel;
@@ -60,59 +70,65 @@ namespace EarthVR.UI
             WorldManipulationController scaling,
             CesiumEarthProvider earth,
             IGeocodingProvider geocoder,
-            ComfortVignetteController vignette)
+            ComfortVignetteController vignette,
+            ISystemKeyboardProvider keyboardProvider = null)
         {
             _input = input;
             _settings = settings;
+            _rig = rig;
             _navigation = navigation;
             _scaling = scaling;
             _earth = earth;
             _geocoder = geocoder;
             _vignette = vignette;
+            _keyboardProvider = keyboardProvider ?? new NullSystemKeyboardProvider();
             _selectionController = rig.RightController;
 
-            var canvasObject = new GameObject("EarthVR Wrist Menu", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            canvasObject.transform.SetParent(rig.LeftController, false);
-            canvasObject.transform.localPosition = new Vector3(0.095f, 0.035f, 0.125f);
-            canvasObject.transform.localRotation = Quaternion.Euler(58f, 0f, 0f);
-            canvasObject.transform.localScale = Vector3.one * 0.00058f;
+            // Parented to Navigation Space (not a hand): it travels with the
+            // player's overall navigation, but does not chase real head/hand
+            // motion, and does not move at all just from physically stepping
+            // around a room-scale play area.
+            var canvasObject = new GameObject("EarthVR Floating Menu", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            canvasObject.transform.SetParent(rig.NavigationSpace, false);
+            canvasObject.transform.localScale = Vector3.one * 0.00085f;
             _canvas = canvasObject.GetComponent<Canvas>();
             _canvas.renderMode = RenderMode.WorldSpace;
             _canvas.worldCamera = rig.Camera;
             var rect = canvasObject.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(600f, 820f);
+            rect.sizeDelta = new Vector2(640f, 960f);
 
             _mainPanel = CreatePanel(canvasObject.transform, BackgroundColor);
-            var header = CreateCard(_mainPanel.transform, "Header", new Vector2(0f, 342f), new Vector2(548f, 104f), new Color(0.025f, 0.10f, 0.15f, 0.98f));
-            CreateCard(header.transform, "Accent", new Vector2(-264f, 0f), new Vector2(7f, 72f), AccentColor);
-            var title = CreateText(header.transform, new Vector2(-92f, 13f), new Vector2(330f, 42f), 31, TextAnchor.MiddleLeft);
+            var header = CreateCard(_mainPanel.transform, "Header", new Vector2(0f, 400f), new Vector2(600f, 110f), new Color(0.028f, 0.11f, 0.165f, 0.98f));
+            CreateCard(header.transform, "Accent", new Vector2(-286f, 0f), new Vector2(8f, 82f), AccentColor);
+            var title = CreateText(header.transform, new Vector2(-96f, 16f), new Vector2(360f, 48f), 34, TextAnchor.MiddleLeft);
             title.text = "EARTH  VR";
             title.fontStyle = FontStyle.Bold;
-            var subtitle = CreateText(header.transform, new Vector2(-92f, -22f), new Vector2(330f, 28f), 15, TextAnchor.MiddleLeft);
+            var subtitle = CreateText(header.transform, new Vector2(-96f, -24f), new Vector2(360f, 30f), 16, TextAnchor.MiddleLeft);
             subtitle.text = "EXPLORE  ·  SCALE  ·  DISCOVER";
             subtitle.color = MutedTextColor;
-            _modeBadge = CreateText(header.transform, new Vector2(184f, 2f), new Vector2(135f, 42f), 17, TextAnchor.MiddleCenter);
+            _modeBadge = CreateText(header.transform, new Vector2(203f, 2f), new Vector2(150f, 46f), 18, TextAnchor.MiddleCenter);
             _modeBadge.color = AccentColor;
             _modeBadge.fontStyle = FontStyle.Bold;
 
-            CreateCard(_mainPanel.transform, "Controls Card", new Vector2(0f, 214f), new Vector2(548f, 128f), CardColor);
-            _status = CreateText(_mainPanel.transform, new Vector2(0f, 214f), new Vector2(500f, 102f), 15, TextAnchor.MiddleLeft);
-            _status.color = new Color(0.9f, 0.95f, 1f, 1f);
+            CreateCard(_mainPanel.transform, "Controls Card", new Vector2(0f, 245f), new Vector2(600f, 150f), CardColor);
+            _status = CreateText(_mainPanel.transform, new Vector2(0f, 245f), new Vector2(550f, 122f), 19, TextAnchor.MiddleLeft);
+            _status.color = new Color(0.92f, 0.96f, 1f, 1f);
 
-            CreateButton(_mainPanel.transform, "RECENTER VIEW", new Vector2(0f, 116f), () => _navigation.ResetUpright(), new Vector2(520f, 42f));
-            CreateButton(_mainPanel.transform, "FLIGHT / GROUNDED MODE", new Vector2(0f, 68f), () => _navigation.State.Toggle(), new Vector2(520f, 42f));
-            var vignetteButton = CreateButton(_mainPanel.transform, "COMFORT VIGNETTE: OFF", new Vector2(0f, 20f), ToggleComfortVignette, new Vector2(520f, 42f));
+            var buttonSize = new Vector2(580f, 60f);
+            CreateButton(_mainPanel.transform, "RECENTER VIEW", new Vector2(0f, 126f), () => _navigation.ResetUpright(), buttonSize);
+            CreateButton(_mainPanel.transform, "FLIGHT / GROUNDED MODE", new Vector2(0f, 54f), () => _navigation.State.Toggle(), buttonSize);
+            var vignetteButton = CreateButton(_mainPanel.transform, "COMFORT VIGNETTE: OFF", new Vector2(0f, -18f), ToggleComfortVignette, buttonSize);
             _vignetteButtonLabel = vignetteButton.GetComponentInChildren<Text>();
-            CreateButton(_mainPanel.transform, "PERFORMANCE OVERLAY", new Vector2(0f, -28f), () => _showPerformance = !_showPerformance, new Vector2(520f, 42f));
-            CreateButton(_mainPanel.transform, "SEARCH FOR A LOCATION", new Vector2(0f, -76f), ShowSearch, new Vector2(520f, 42f));
+            CreateButton(_mainPanel.transform, "PERFORMANCE OVERLAY", new Vector2(0f, -90f), () => _showPerformance = !_showPerformance, buttonSize);
+            CreateButton(_mainPanel.transform, "SEARCH FOR A LOCATION", new Vector2(0f, -162f), ShowSearch, buttonSize);
             UpdateVignetteButtonLabel();
 
-            CreateCard(_mainPanel.transform, "Diagnostics Card", new Vector2(0f, -245f), new Vector2(548f, 250f), new Color(0.025f, 0.055f, 0.085f, 0.96f));
-            _diagnostics = CreateText(_mainPanel.transform, new Vector2(0f, -245f), new Vector2(500f, 216f), 16, TextAnchor.UpperLeft);
+            CreateCard(_mainPanel.transform, "Diagnostics Card", new Vector2(0f, -330f), new Vector2(600f, 220f), new Color(0.028f, 0.06f, 0.092f, 0.96f));
+            _diagnostics = CreateText(_mainPanel.transform, new Vector2(0f, -330f), new Vector2(550f, 188f), 16, TextAnchor.UpperLeft);
             _diagnostics.color = MutedTextColor;
-            var hint = CreateText(_mainPanel.transform, new Vector2(0f, -382f), new Vector2(520f, 24f), 14, TextAnchor.MiddleCenter);
+            var hint = CreateText(_mainPanel.transform, new Vector2(0f, -462f), new Vector2(600f, 24f), 14, TextAnchor.MiddleCenter);
             hint.text = "LEFT VIEW BUTTON  ·  CLOSE MENU";
-            hint.color = new Color(0.42f, 0.58f, 0.68f, 1f);
+            hint.color = new Color(0.44f, 0.6f, 0.7f, 1f);
 
             CreateSearchPanel(canvasObject.transform);
             _canvas.gameObject.SetActive(false);
@@ -121,24 +137,24 @@ namespace EarthVR.UI
         private void CreateSearchPanel(Transform parent)
         {
             _searchPanel = CreatePanel(parent, BackgroundColor);
-            var searchTitle = CreateText(_searchPanel.transform, new Vector2(0f, 354f), new Vector2(520f, 48f), 30, TextAnchor.MiddleCenter);
+            var searchTitle = CreateText(_searchPanel.transform, new Vector2(0f, 390f), new Vector2(560f, 50f), 30, TextAnchor.MiddleCenter);
             searchTitle.text = "GO TO LOCATION";
             searchTitle.fontStyle = FontStyle.Bold;
             searchTitle.color = AccentColor;
-            CreateCard(_searchPanel.transform, "Search Field", new Vector2(0f, 294f), new Vector2(530f, 56f), CardColor);
-            _searchQueryText = CreateText(_searchPanel.transform, new Vector2(0f, 294f), new Vector2(490f, 44f), 23, TextAnchor.MiddleLeft);
-            _searchStatus = CreateText(_searchPanel.transform, new Vector2(0f, 240f), new Vector2(510f, 54f), 17, TextAnchor.UpperLeft);
+            CreateCard(_searchPanel.transform, "Search Field", new Vector2(0f, 326f), new Vector2(570f, 58f), CardColor);
+            _searchQueryText = CreateText(_searchPanel.transform, new Vector2(0f, 326f), new Vector2(530f, 46f), 24, TextAnchor.MiddleLeft);
+            _searchStatus = CreateText(_searchPanel.transform, new Vector2(0f, 268f), new Vector2(550f, 56f), 17, TextAnchor.UpperLeft);
             _searchStatus.color = MutedTextColor;
 
             _keyboardPanel = new GameObject("Search Keyboard", typeof(RectTransform));
             _keyboardPanel.transform.SetParent(_searchPanel.transform, false);
-            CreateKeyRow("1234567890", 145f);
-            CreateKeyRow("QWERTYUIOP", 95f);
-            CreateKeyRow("ASDFGHJKL", 45f);
-            CreateKeyRow("ZXCVBNM", -5f);
-            CreateButton(_keyboardPanel.transform, "SPACE", new Vector2(-105f, -67f), () => AppendSearch(" "), new Vector2(175f, 46f));
-            CreateButton(_keyboardPanel.transform, "BACK", new Vector2(56f, -67f), BackspaceSearch, new Vector2(125f, 46f));
-            CreateButton(_keyboardPanel.transform, "SEARCH", new Vector2(190f, -67f), RunSearch, new Vector2(125f, 46f));
+            CreateKeyRow("1234567890", 170f);
+            CreateKeyRow("QWERTYUIOP", 116f);
+            CreateKeyRow("ASDFGHJKL", 62f);
+            CreateKeyRow("ZXCVBNM", 8f);
+            CreateButton(_keyboardPanel.transform, "SPACE", new Vector2(-120f, -55f), () => AppendSearch(" "), new Vector2(190f, 52f));
+            CreateButton(_keyboardPanel.transform, "BACK", new Vector2(65f, -55f), BackspaceSearch, new Vector2(135f, 52f));
+            CreateButton(_keyboardPanel.transform, "SEARCH", new Vector2(220f, -55f), RunSearch, new Vector2(135f, 52f));
 
             _resultsPanel = new GameObject("Search Results", typeof(RectTransform));
             _resultsPanel.transform.SetParent(_searchPanel.transform, false);
@@ -148,23 +164,23 @@ namespace EarthVR.UI
                 var resultButton = CreateButton(
                     _resultsPanel.transform,
                     "Result",
-                    new Vector2(0f, 145f - i * 75f),
+                    new Vector2(0f, 165f - i * 82f),
                     () => GoToSearchResult(resultIndex),
-                    new Vector2(470f, 66f));
-                resultButton.GetComponentInChildren<Text>().fontSize = 16;
+                    new Vector2(500f, 72f));
+                resultButton.GetComponentInChildren<Text>().fontSize = 17;
                 _resultButtons.Add(resultButton);
             }
 
-            CreateText(_searchPanel.transform, new Vector2(0f, -250f), new Vector2(470f, 38f), 16, TextAnchor.MiddleCenter).text =
+            CreateText(_searchPanel.transform, new Vector2(0f, -260f), new Vector2(500f, 38f), 15, TextAnchor.MiddleCenter).text =
                 "Search data © OpenStreetMap contributors";
-            CreateButton(_searchPanel.transform, "Back to controls", new Vector2(0f, -320f), ShowMain, new Vector2(450f, 48f));
+            CreateButton(_searchPanel.transform, "Back to controls", new Vector2(0f, -340f), ShowMain, new Vector2(480f, 54f));
             _searchPanel.SetActive(false);
             UpdateSearchQueryText();
         }
 
         private void CreateKeyRow(string keys, float y)
         {
-            const float spacing = 46f;
+            const float spacing = 50f;
             var startX = -(keys.Length - 1) * spacing * 0.5f;
             for (var i = 0; i < keys.Length; i++)
             {
@@ -174,7 +190,7 @@ namespace EarthVR.UI
                     character,
                     new Vector2(startX + i * spacing, y),
                     () => AppendSearch(character),
-                    new Vector2(41f, 42f));
+                    new Vector2(45f, 46f));
             }
         }
 
@@ -182,12 +198,23 @@ namespace EarthVR.UI
         {
             _mainPanel.SetActive(false);
             _searchPanel.SetActive(true);
-            ShowKeyboard();
+            if (_keyboardProvider != null && _keyboardProvider.IsAvailable)
+            {
+                _keyboardPanel.SetActive(false);
+                _resultsPanel.SetActive(false);
+                _searchStatus.text = "Enter a city, landmark, or address.";
+                _keyboardProvider.Show(_searchQuery, OnSystemKeyboardTextChanged, OnSystemKeyboardDone);
+            }
+            else
+            {
+                ShowKeyboard();
+            }
         }
 
         private void ShowMain()
         {
             _searchCancellation?.Cancel();
+            _keyboardProvider?.Hide();
             _searchPanel.SetActive(false);
             _mainPanel.SetActive(true);
         }
@@ -198,6 +225,14 @@ namespace EarthVR.UI
             _resultsPanel.SetActive(false);
             _searchStatus.text = "Enter a city, landmark, or address, then press SEARCH.";
         }
+
+        private void OnSystemKeyboardTextChanged(string text)
+        {
+            _searchQuery = text ?? string.Empty;
+            UpdateSearchQueryText();
+        }
+
+        private void OnSystemKeyboardDone() => RunSearch();
 
         private void AppendSearch(string value)
         {
@@ -307,13 +342,18 @@ namespace EarthVR.UI
             // A script recompile while Play mode is active can leave this runtime-built
             // panel alive while its non-serialized service references are reset.
             if (_canvas == null || _input == null || _navigation == null || _scaling == null ||
-                _earth == null || _selectionController == null)
+                _earth == null || _selectionController == null || _rig == null)
                 return;
             var rightTriggerHeld = _input.RightTriggerHeld;
             var rightTriggerPressed = rightTriggerHeld && !_rightTriggerWasHeld;
             _rightTriggerWasHeld = rightTriggerHeld;
             if (_input.OpenMenuPressed)
-                _canvas.gameObject.SetActive(!_canvas.gameObject.activeSelf);
+            {
+                var opening = !_canvas.gameObject.activeSelf;
+                _canvas.gameObject.SetActive(opening);
+                if (opening)
+                    SummonInFrontOfViewer();
+            }
             if (!_canvas.gameObject.activeSelf)
             {
                 SetPointedButton(null);
@@ -335,8 +375,7 @@ namespace EarthVR.UI
             _status.text =
                 $"HEIGHT  {ScaleMath.ApproximateEyeHeight(_settings.realEyeHeightMeters, _scaling.UserScale):N1} m       " +
                 $"SPEED  {_navigation.CurrentGeographicSpeed:N1} m/s\n" +
-                "THUMBSTICK  Aim + move       TRIGGER  Pull Earth\n" +
-                "BOTH TRIGGERS  Pan / rotate / zoom together\n" +
+                "THUMBSTICK  Aim + move       RIGHT TRIGGER  Grab ground\n" +
                 "GRIP  Rotate world              SHOULDER  Flight boost\n" +
                 "SUN / MOON  Point + trigger to change time";
 
@@ -356,6 +395,26 @@ namespace EarthVR.UI
             builder.AppendLine($"Tiles for view: {_earth.Tileset.ComputeLoadProgress():N0}%");
             builder.Append(_earth.StatusMessage);
             _diagnostics.text = builder.ToString();
+        }
+
+        /// <summary>Re-anchors the panel a fixed distance in front of wherever
+        /// the head is looking, upright (yaw only), facing back toward the
+        /// viewer. Called only when the menu transitions from closed to open,
+        /// so it summons in front of the viewer without chasing the head
+        /// afterward.</summary>
+        private void SummonInFrontOfViewer()
+        {
+            var headTransform = _rig.Camera.transform;
+            var headPosition = headTransform.position;
+            var facing = Vector3.ProjectOnPlane(headTransform.forward, Vector3.up);
+            if (facing.sqrMagnitude < 0.0001f)
+                facing = Vector3.ProjectOnPlane(-headTransform.up, Vector3.up);
+            if (facing.sqrMagnitude < 0.0001f)
+                facing = Vector3.forward;
+            facing.Normalize();
+
+            _canvas.transform.position = headPosition + facing * SummonDistanceMeters + Vector3.down * SummonDownOffsetMeters;
+            _canvas.transform.rotation = Quaternion.LookRotation(-facing, Vector3.up);
         }
 
         private WorldSpaceButton FindNearestPointedButton()
@@ -405,8 +464,8 @@ namespace EarthVR.UI
             rect.offsetMax = Vector2.zero;
             StyleRoundedImage(panel.GetComponent<Image>(), color);
             var outline = panel.GetComponent<Outline>();
-            outline.effectColor = new Color(0.18f, 0.55f, 0.72f, 0.35f);
-            outline.effectDistance = new Vector2(2f, -2f);
+            outline.effectColor = new Color(0.22f, 0.62f, 0.78f, 0.4f);
+            outline.effectDistance = new Vector2(2.5f, -2.5f);
             return panel;
         }
 
@@ -458,15 +517,20 @@ namespace EarthVR.UI
             button.targetGraphic = image;
             var colors = button.colors;
             colors.normalColor = ButtonColor;
-            colors.highlightedColor = new Color(0.08f, 0.30f, 0.40f, 1f);
-            colors.pressedColor = new Color(0.16f, 0.62f, 0.76f, 1f);
+            colors.highlightedColor = new Color(0.10f, 0.34f, 0.45f, 1f);
+            colors.pressedColor = new Color(0.20f, 0.68f, 0.82f, 1f);
             colors.selectedColor = colors.highlightedColor;
             colors.disabledColor = new Color(0.06f, 0.08f, 0.10f, 0.6f);
             colors.colorMultiplier = 1f;
             colors.fadeDuration = 0.08f;
             button.colors = colors;
             var collider = gameObject.GetComponent<BoxCollider>();
-            collider.size = new Vector3(rect.sizeDelta.x, rect.sizeDelta.y, 12f);
+            // A small invisible margin beyond the visible button graphic —
+            // pointer aim at VR distances is imprecise, so the hit target is
+            // slightly bigger than what's drawn. Kept modest because several
+            // buttons (keyboard keys especially) sit close together; anything
+            // larger starts overlapping neighbouring hit zones.
+            collider.size = new Vector3(rect.sizeDelta.x * 1.04f, rect.sizeDelta.y * 1.08f, 20f);
             gameObject.GetComponent<WorldSpaceButton>().Configure(button);
             var text = CreateText(gameObject.transform, Vector2.zero, rect.sizeDelta - new Vector2(30f, 0f), 20, TextAnchor.MiddleCenter);
             text.text = label;
@@ -486,8 +550,8 @@ namespace EarthVR.UI
             if (_roundedSprite != null)
                 return _roundedSprite;
 
-            const int size = 32;
-            const float radius = 8f;
+            const int size = 64;
+            const float radius = 15f;
             _roundedTexture = new Texture2D(size, size, TextureFormat.RGBA32, false)
             {
                 name = "EarthVR Rounded UI Texture",

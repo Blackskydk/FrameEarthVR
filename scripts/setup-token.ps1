@@ -26,6 +26,13 @@ function Save-EarthVRToken([string]$Folder, [string]$Token) {
     }
 }
 
+function ConvertFrom-FrameFolders([string]$Json) {
+    # Windows PowerShell 5.1 emits JSON arrays as a single pipeline object.
+    # Enumerate explicitly so one or multiple installations behave identically.
+    $folders = ConvertFrom-Json -InputObject $Json
+    foreach ($folder in $folders) { [string]$folder }
+}
+
 function Show-EarthVRSetup {
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
     $form = New-Object Windows.Forms.Form
@@ -133,7 +140,8 @@ try {
         if (-not $script:ssh) { $script:ssh = Join-Path $env:ProgramFiles 'Git/usr/bin/ssh.exe' }
         if (-not (Test-Path -LiteralPath $script:ssh)) { throw 'SSH not found. Enable Windows OpenSSH Client or install Git for Windows.' }
         $platform = if ($Target -eq 'FrameApk') { 'apk' } else { 'windows' }
-        $candidates = @(Invoke-FrameTokenCommand @{mode='discover'; platform=$platform} | ConvertFrom-Json)
+        $discovery = Invoke-FrameTokenCommand @{mode='discover'; platform=$platform}
+        $candidates = @(ConvertFrom-FrameFolders ($discovery -join "`n"))
         if (-not $candidates.Count) { throw 'Launch the installed game once on Frame, close it, then retry.' }
         if ($DataFolder) {
             if ($DataFolder -notin $candidates) { throw 'DataFolder must match a discovered game data folder.' }

@@ -17,7 +17,11 @@ try {
     $errors = $null; $tokens = $null
     [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'setup-token.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
     if ($errors.Count) { throw 'Setup script parser errors.' }
-    Write-Host '8 token setup checks passed.'
+    $single = @(ConvertFrom-FrameFolders '["/game/data"]')
+    $multiple = @(ConvertFrom-FrameFolders '["/one/data","/two/data"]')
+    if ($single.Count -ne 1 -or $single[0] -ne '/game/data' -or $single[0] -isnot [string]) { throw 'Single Frame folder parsing failed.' }
+    if ($multiple.Count -ne 2 -or $multiple[1] -ne '/two/data') { throw 'Multiple Frame folder parsing failed.' }
+    Write-Host '10 token setup checks passed.'
 }
 finally {
     # Only the freshly created, unique test folder is removed.

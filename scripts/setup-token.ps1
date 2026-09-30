@@ -105,9 +105,24 @@ print('Saved token. Reopen the game from Steam.')
 
 function Invoke-FrameTokenCommand([hashtable]$Request) {
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($frameProgram))
-    $remote = "podman unshare python3 -c 'import base64;exec(base64.b64decode(`"$encoded`"))'"
-    $result = ($Request | ConvertTo-Json -Compress) | & $script:ssh -i $DevkitKey -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new "steamos@$DeviceHost" $remote
-    if ($LASTEXITCODE -ne 0) { throw 'Frame setup failed. Check pairing, network, and that the game has launched once.' }
+    # Avoid embedded double quotes: legacy PowerShell removes them when invoking
+    # native executables. This argument contains helper code only, never a token.
+    $remote = "podman unshare python3 -c 'import base64,sys;exec(base64.b64decode(sys.argv[1]))' $encoded"
+    $errorFile = [IO.Path]::GetTempFileName()
+    try {
+        $result = ($Request | ConvertTo-Json -Compress) | & $script:ssh -i $DevkitKey -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new "steamos@$DeviceHost" $remote 2>$errorFile
+        $exitCode = $LASTEXITCODE
+        $details = [IO.File]::ReadAllText($errorFile)
+    }
+    finally { [IO.File]::Delete($errorFile) }
+    if ($exitCode -ne 0) {
+        if ($details -match 'Permission denied \(publickey') { throw 'Frame rejected the Devkit pairing key. Pair this PC again in Devkit Client.' }
+        if ($details -match 'Could not resolve hostname|Connection timed out|Connection refused|No route to host') { throw 'Cannot connect to Frame. Check the hostname/IP and that PC and Frame are on the same network.' }
+        if ($details -match 'Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED') { throw 'SSH host verification failed. The stored host key differs; verify and re-pair your Frame.' }
+        if ($details -match 'Game data folder not found') { throw 'The selected game data folder is missing. Launch the installed game once, close it, then retry.' }
+        if ($details -match 'PermissionError') { throw 'The Frame helper could not write the game data folder. Check Lepton file permissions.' }
+        throw "Frame helper failed over SSH (exit $exitCode). Pairing or first launch may not be the cause. Update setup-token.ps1 and retry."
+    }
     return $result
 }
 

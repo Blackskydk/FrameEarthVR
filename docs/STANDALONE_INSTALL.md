@@ -4,7 +4,7 @@ Players use the prebuilt ARM64 APK from GitHub Releases. They do not need Unity
 or a source checkout. The repository alone is not an installable app: a public
 release needs to include the APK and its SHA-256 checksum. Download
 `FrameEarthVR.apk` from [GitHub Releases](https://github.com/Blackskydk/FrameEarthVR/releases)
-and follow the [four-step, no-terminal guide in the README](../README.md#install-on-steam-frame--no-terminal-needed). No credentials belong
+and follow the [Steam Frame installation walkthrough in the README](../README.md#install-on-steam-frame). No credentials belong
 in a release, installer URL, or GitHub issue.
 
 ## Supply your own token on first launch

@@ -27,6 +27,28 @@ $buildLog = Join-Path $projectRoot 'Logs\SteamFrameBuild.log'
 $projectLock = Join-Path $projectRoot 'Temp\UnityLockfile'
 $installScript = Join-Path $PSScriptRoot 'install-steam-frame.ps1'
 
+function Test-UnityProjectLockHeld {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $false
+    }
+
+    try {
+        $lockStream = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::None
+        )
+        $lockStream.Dispose()
+        return $false
+    }
+    catch [System.IO.IOException] {
+        return $true
+    }
+}
+
 if (-not (Test-Path -LiteralPath $unityEditor)) {
     throw "Unity $unityVersion was not found at '$unityEditor'."
 }
@@ -46,17 +68,24 @@ if ($ValidateOnly) {
 
 $reopenEditor = $false
 if (Test-Path -LiteralPath $projectLock) {
-    $reopenEditor = -not $KeepEditorClosed
-    Write-Host 'The project is currently open in Unity.' -ForegroundColor Yellow
-    Write-Host 'Save your work and close Unity, then return to this window.'
-    Read-Host 'Press Enter after Unity has closed' | Out-Null
+    if (Test-UnityProjectLockHeld -Path $projectLock) {
+        $reopenEditor = -not $KeepEditorClosed
+        Write-Host 'The project is currently open in Unity.' -ForegroundColor Yellow
+        Write-Host 'Save your work and close Unity, then return to this window.'
+        Read-Host 'Press Enter after Unity has closed' | Out-Null
 
-    $closeDeadline = (Get-Date).AddSeconds(30)
-    while ((Test-Path -LiteralPath $projectLock) -and (Get-Date) -lt $closeDeadline) {
-        Start-Sleep -Milliseconds 500
+        $closeDeadline = (Get-Date).AddSeconds(30)
+        while ((Test-UnityProjectLockHeld -Path $projectLock) -and (Get-Date) -lt $closeDeadline) {
+            Start-Sleep -Milliseconds 500
+        }
+        if (Test-UnityProjectLockHeld -Path $projectLock) {
+            throw 'Unity is still using the project. Close it completely and run this script again.'
+        }
     }
+
     if (Test-Path -LiteralPath $projectLock) {
-        throw 'Unity is still using the project. Close it completely and run this script again.'
+        Write-Host 'Removing a stale Unity project lock file.' -ForegroundColor Yellow
+        Remove-Item -LiteralPath $projectLock -Force
     }
 }
 

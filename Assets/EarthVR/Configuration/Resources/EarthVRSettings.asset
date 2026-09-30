@@ -12,11 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b1255b56fbf7654693e91a0e0470cd1, type: 3}
   m_Name: EarthVRSettings
   m_EditorClassIdentifier: EarthVR.Runtime::EarthVR.Configuration.EarthVRSettings
+  randomizeStartingLocation: 1
+  startPlaceName: Copenhagen
   startLongitude: 12.5683
   startLatitude: 55.6761
   startHeightMeters: 300
-  minimumUserScale: 1
-  maximumUserScale: 100000
+  minimumUserScale: 0.05
+  maximumUserScale: 20000000
   realEyeHeightMeters: 1.75
   groundedScaleDoublingsPerSecond: 1.6
   humanScaleSpeedMetersPerSecond: 1.8
@@ -24,19 +26,24 @@ MonoBehaviour:
   accelerationSeconds: 0.35
   decelerationSeconds: 0.5
   altitudeSpeedMultiplier: 18
+  altitudeCruiseFractionPerSecond: 0.35
   scaleSpeedExponent: 0.65
   boostSpeedMultiplier: 8
   pointerDefaultLengthMeters: 25
   pointerMaximumLengthMeters: 2000000
   maximumGrabDistanceMeters: 2000000
-  grabGainReferenceDistanceMeters: 0.5
-  maximumGrabGain: 200
   dragMomentumEnabled: 1
   dragMomentumDecaySeconds: 0.5
   dragMomentumMinimumSpeedMetersPerSecond: 0.05
   groundApproachSafetyMeters: 150
   minimumApproachSpeedFraction: 0.15
+  groundApproachRelaxSeconds: 0.6
+  groundApproachLookaheadSeconds: 1.2
   boostEaseSeconds: 0.25
+  flightCollisionRadiusMeters: 0.18
+  flightSurfaceClearanceMeters: 0.03
+  modeTransitionSeconds: 0.7
+  modeGroundSampleTimeoutSeconds: 5
   soaringWindMaximumVolume: 0.42
   soaringWindResponseSeconds: 0.3
   soaringWindFullSpeedMetersPerSecond: 18
@@ -47,18 +54,50 @@ MonoBehaviour:
   comfortVignetteResponseSeconds: 0.25
   groundClearanceMeters: 0.08
   groundProbeDistanceMeters: 1500
-  groundCorrectionSeconds: 0.35
+  groundCorrectionSeconds: 0.55
+  groundCorrectionAscendSeconds: 0.45
+  groundedFloorLookaheadSeconds: 0.25
   heightSampleIntervalSeconds: 1.5
   searchArrivalHeightMeters: 2500
+  carMaximumSpeedMetersPerSecond: 32
+  carMaximumReverseSpeedMetersPerSecond: 10
+  carAccelerationMetersPerSecondSquared: 8
+  carBrakingMetersPerSecondSquared: 14
+  carSteeringDegreesPerSecond: 72
+  carCollisionRadiusMeters: 0.65
+  originRebaseDistanceUnityMeters: 2000
+  originRebaseCooldownSeconds: 0.25
+  arrivalLoadPercentage: 85
+  arrivalMinimumBlackSeconds: 0.65
+  arrivalLoadTimeoutSeconds: 20
+  arrivalFadeSeconds: 0.25
+  miniatureGlobeRadiusMeters: 0.12
+  miniatureGlobeHoverScale: 1.35
+  miniatureGlobeDragThresholdDegrees: 2
+  globeOverviewUserScale: 4000000
+  globeOverviewDiameterDegrees: 48
+  globeOverviewTransitionSeconds: 3
+  globeOverviewDestinationOrbitSeconds: 1.15
+  globeOverviewZoomInSeconds: 6
+  globeOverviewMinimumLoadPercentage: 60
+  globeOverviewMinimumZoomSpeed: 0.25
+  globeOverviewLabelsMinimumScale: 100000
+  globeOverviewMaximumLabels: 28
+  globeOverviewLabelSeparation: 0.055
+  preferGooglePhotorealisticTiles: 1
   pcMaximumScreenSpaceError: 6
-  standaloneMaximumScreenSpaceError: 10
+  standaloneMaximumScreenSpaceError: 6
   pcCacheMegabytes: 3072
-  standaloneCacheMegabytes: 1024
-  maximumSimultaneousTileLoads: 12
+  standaloneCacheMegabytes: 1536
+  maximumSimultaneousTileLoads: 20
   createPhysicsMeshes: 1
   humanNearClipMeters: 0.03
-  geographicFarClipMeters: 20000000
+  geographicFarClipMeters: 100000
+  horizonFarClipMultiplier: 1.35
+  horizonFogStartAltitudeMeters: 10000
+  horizonFogStartFraction: 0.72
+  horizonFogEndFraction: 1.04
   pcRenderScale: 1
-  standaloneRenderScale: 0.9
+  standaloneRenderScale: 1
   pcMsaa: 2
   standaloneMsaa: 2

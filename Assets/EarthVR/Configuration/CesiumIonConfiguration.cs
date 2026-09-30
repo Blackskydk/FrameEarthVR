@@ -18,6 +18,13 @@ namespace EarthVR.Configuration
 
         public static IEnumerator LoadAccessToken(Action<string> completed)
         {
+            var userToken = UserCredentials.ReadToken();
+            if (IsUsable(userToken))
+            {
+                completed(userToken);
+                yield break;
+            }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             var environmentValue = Environment.GetEnvironmentVariable("EARTHVR_CESIUM_ION_ACCESS_TOKEN");
             if (IsUsable(environmentValue))
             {
@@ -55,6 +62,11 @@ namespace EarthVR.Configuration
             }
 
             completed(IsUsable(configuration?.accessToken) ? configuration.accessToken.Trim() : null);
+#else
+            // A distributed release only accepts credentials entered by its user.
+            completed(null);
+            yield break;
+#endif
         }
 
         private static bool IsUsable(string value) =>

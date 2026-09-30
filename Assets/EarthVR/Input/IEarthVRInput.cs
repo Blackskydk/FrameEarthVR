@@ -12,6 +12,7 @@ namespace EarthVR.Input
         bool LeftGripHeld { get; }
         bool RightGripHeld { get; }
         bool BoostHeld { get; }
+        bool ToggleGlobeOverviewPressed { get; }
         bool OpenMenuPressed { get; }
         bool ResetViewPressed { get; }
         bool ToggleMovementModePressed { get; }

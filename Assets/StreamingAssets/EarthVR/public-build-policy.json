@@ -1,0 +1,7 @@
+{
+  "schema": "earthvr.credentials/v1",
+  "releaseCredentials": "user-provided-on-device",
+  "firstRunSetup": true,
+  "requiredProvider": "cesium-ion",
+  "requiredAsset": 2275207
+}

@@ -7,15 +7,16 @@ Record GPU driver, Unity version, SteamVR version, OpenXR runtime, render scale,
 - [ ] Both Index controllers track with correct handedness and pointing direction.
 - [ ] Dominant stick moves forward/backward and sideways relative to controller aim, including vertical flight.
 - [ ] Acceleration/deceleration is smooth and no roll accumulates during normal flight.
-- [ ] Reset produces an upright, comfortable view without teleporting position.
+- [ ] Reset removes all accumulated pitch and roll, preserves heading, and produces an upright comfortable view without teleporting position, including after tilted overview or an antipodal trip.
 - [ ] The right trigger drags Earth and releases with a brief, decaying momentum carry, not a jump.
 - [ ] The left trigger never grabs or drags Earth under any circumstance.
 - [ ] The exact terrain feature selected at trigger-down remains attached to the controller for the entire drag; it never slips to a neighboring point.
+- [ ] Rotating the pointing hand while holding trigger moves the selected ground point immediately with the pointer endpoint; the ray never moves ahead while the ground catches up a frame later.
 - [ ] The controller pointer reaches the visible surface and stops at the selected terrain/building.
 - [ ] The pointer fades gradually and shows a stable ball at its surface intersection.
-- [ ] Both controller beams and their hit markers are white, translucent, and unobtrusive while remaining usable against the night sky.
+- [ ] Only the right controller has a white, translucent beam and hit marker; no beam or streak is emitted from the left hand.
 - [ ] Grabbing a nearby point (within arm's reach) and moving the hand moves that point by close to the same real-world distance — it should feel like directly holding the ground, not an amplified or laggy drag.
-- [ ] Grabbing a point that was farther away when grabbed moves proportionally more per centimetre of real hand motion, scaling up smoothly with initial grab distance rather than jumping.
+- [ ] A distant grabbed point remains at its original pointer depth in Flight; in Grounded it remains exactly on the live ray while depth changes as needed to keep the tracking floor fixed.
 - [ ] Aiming at open sky, an unloaded tile gap, or past the horizon never grabs anything.
 - [ ] Trigger activates a pointed-at menu button without also dragging Earth.
 - [ ] Either grip yaws Earth around the user's head position without adding pitch or roll.
@@ -28,28 +29,55 @@ Record GPU driver, Unity version, SteamVR version, OpenXR runtime, render scale,
 - [ ] Giant-scale Grounded movement covers geographic distance while retaining a walking-speed physical feel.
 - [ ] Grounded mode remains stable while a higher-resolution tile replaces a coarse tile.
 - [ ] Failed/unavailable height samples do not cause a fall or large snap.
-- [ ] Switching Flight → Grounded keeps the viewer at the same altitude/eye-height they were at in Flight, becoming human scale (1x) without teleporting down to the literal ground.
+- [ ] Switching Flight → Grounded leaves the eyes exactly fixed while scale changes until the tracking floor meets the ground; switching back to Flight preserves that user scale and the same visible Earth curvature without moving the eyes.
 - [ ] In Grounded mode, physically walking around a room-scale play area never changes tracking-floor height or climbs onto a nearby roof, wall, or curb — only moving the thumbstick does.
 - [ ] In Grounded mode, moving the thumbstick over a building or rise in terrain does lift the tracking floor onto it, as expected for deliberate travel.
-- [ ] Holding the Steam Frame right shoulder in Flight mode produces an obvious speed boost and releasing it restores normal speed; it never starts or modifies Earth drag, rotation, or grounded scaling, and A does not boost.
+- [ ] Holding the Steam Frame right shoulder in either Flight or Grounded mode produces an obvious speed boost and releasing it restores normal speed; it never starts or modifies Earth drag, rotation, or grounded scaling, and A does not boost.
 - [ ] Flight produces smooth soaring-wind audio that grows with normal and boosted speed, fades when stopping or entering Grounded mode, and has no audible clicks or short loop seam.
 - [ ] Pulling a distant terrain feature underneath the user never changes player height during the trigger hold.
 - [ ] In Grounded mode, forward motion converges on the terrain point under the pointer instead of passing over it.
 - [ ] The Sun can be trigger-dragged smoothly from sunrise through noon to sunset along a plausible location/date-specific arc.
 - [ ] A white path appears only when looking within about 10 degrees of the active body, becomes strongest near 3 degrees, fades away from that body along the arc, and never renders below/behind the horizon.
 - [ ] The Sun/Moon visibly enlarges when a controller is accurately aimed into its grab area and returns to normal size when aimed away.
-- [ ] Continuing a Sun drag below the horizon never falls through into Earth cone dragging before trigger release.
+- [ ] Continuing a Sun drag below the horizon never falls through into Earth dragging before trigger release.
 - [ ] Sun, Moon, solar path, stars, and sky gradients align between both eyes in single-pass-instanced VR.
 - [ ] At night the Moon can be grabbed to move time back into daylight.
 - [ ] The nighttime Moon is easy to acquire and has a recognizably mottled, cratered lunar appearance.
 - [ ] Terrain illumination, shadows, ambient color, twilight, and stars respond continuously as the Sun crosses the horizon.
-- [ ] Floating menu buttons can be selected by dominant-controller trigger, including at the edges of each button's padded hit area.
-- [ ] The Steam Frame left View/pause button shows and hides the floating menu, which starts hidden and summons upright a fixed distance in front of the current head direction each time it opens, rather than appearing on a hand.
-- [ ] The floating menu does not drift or rotate to chase the head while it stays open; it also does not move at all from physically stepping around the play area.
+- [ ] Hand menu buttons can be selected by dominant-controller trigger, including at the edges of each button's padded hit area.
+- [ ] The Steam Frame left View/pause button shows and hides the hand menu and destination globe together; both start hidden, stay hidden when merely glancing at the left hand, and the menu always reopens on its main page.
+- [ ] The open hand menu stays beside the globe as the left hand moves and keeps facing the viewer; starting travel from search, places, the globe, or planetary overview closes it, and it cannot be reopened until the journey ends.
 - [ ] A new session starts near local solar noon rather than inheriting the computer's nighttime clock.
+- [ ] Every travel path lands near local solar noon at the destination; a winter trip into a polar-night location changes to that hemisphere's summer date and still lands in daylight.
 - [ ] Google and all data-provider attribution remains visible and readable in both eyes.
 - [ ] Tiles unload after leaving an area; memory stabilizes near the configured cache target.
-- [ ] Distant terrain refines to the configured 10 px Frame / 6 px PC screen-space error without horizon fog culling.
+- [ ] While the hand menu is open, the NASA map globe stays attached above the left controller with continents correctly aligned; pointing at a recognizable place with the right hand, triggering twice, and arriving lands at that place.
+- [ ] The destination globe keeps its orientation when the left hand rotates, grows smoothly while pointed at, and right-trigger dragging rotates the grabbed surface under the pointer without moving the world behind it.
+- [ ] The round controls curve around the left-hand globe: mode reads/colors itself as Flight or Grounded, vignette reads On or Off, and the star favorites/unfavorites the current view. Each responds once to a right-pointer trigger press, and mode presses during a Flight/Grounded transition are ignored.
+- [ ] Left D-pad Right on Steam Frame toggles Flight/Grounded once per press.
+- [ ] `ENTER CAR MODE` brings in a stable cockpit, settles onto the local terrain, and changes the right stick to throttle/reverse and steering; `EXIT CAR MODE` returns to the prior locomotion mode.
+- [ ] The car climbs and descends streamed terrain without floating or sinking, stops at steep building/terrain faces, and does not accidentally grab, rotate, or scale Earth while driving.
+- [ ] Car mode survives a favorite save/restore and planetary-overview round trip, restoring the cockpit and drivable state afterward.
+- [ ] The globe's green “You are here” marker agrees with the current location and continues updating after flight or travel.
+- [ ] Restarting several times selects varied national parks/cities and never repeats the immediately previous launch location.
+- [ ] The hand menu's Search button opens the keyboard/results view on the same panel, readable and aimable at hand distance.
+- [ ] Typing `Los a` shows Los Angeles as a local suggestion; typing `Yose` shows Yosemite National Park; choosing either begins travel without waiting for or issuing a geocoder search.
+- [ ] Left D-pad Up (Steam Frame) or the left primary button (other controllers) tilts the current streamed ground north-up without automatically zooming out, while the hand menu and globe close and normal flight/grab/ground correction pauses. Left D-pad Down (Steam Frame) restores an upright view outside the overview.
+- [ ] Major city and geographic-place labels fade in during the pullback, stay attached to the correct globe locations while orbiting, do not show through the far side, and avoid obvious overlaps.
+- [ ] In planetary overview, trigger-drag keeps the initially touched surface point attached to the pointer like a physical globe, keeps Earth's center stationary in front of the viewer even during a large sweep, and does not travel on release.
+- [ ] In planetary overview, either grip rotates Earth freely around its center without translating the globe or accidentally beginning travel.
+- [ ] In planetary overview, the visible hemisphere remains fully sunlit as Earth rotates; leaving without travel restores normal astronomical lighting, while a completed trip switches to destination daylight.
+- [ ] After rotating to the opposite hemisphere, pushing the right stick forward zooms into the point under the pointer without veering at the antimeridian, and remains stable down to local scale.
+- [ ] Repeatedly zooming out and in with a steady pointer does not make Earth jump, roll, or rotate; deliberate pointer motion or grip rotation still moves it normally.
+- [ ] Continuing that drag beyond Earth's visible limb reaches a stable virtual-limb stop instead of reversing, losing the grab, or throwing Earth to one side.
+- [ ] In planetary overview, the right pointer can select both visible terrain and ocean; a short trigger click visibly orbits the globe to center the point, then descends all the way into it without a blackout, teleport, or final viewpoint snap.
+- [ ] Planetary descent slows smoothly when destination tiles lag and resumes speed as Cesium catches up; no overlapping decorative sphere or Blue Marble underlay produces surface artifacts.
+- [ ] Pressing left D-pad Up / the left primary button again from planetary overview follows the same seamless return path to the exact saved viewpoint and restores normal controls; the hand menu can then be reopened with the View/pause button.
+- [ ] Returning from planetary overview to Grounded always leaves the tracking floor tangent to Earth (upright), never sideways or diagonally embedded in the surface.
+- [ ] At high altitude, coarse Earth coverage extends to a curved horizon without a hard camera/tile edge, then blends softly into the current day/night sky.
+- [ ] Normal Flight speed increases strongly with altitude (about 35 km/s at 100 km before boost), while low-altitude control remains precise.
+- [ ] Terrain is visible below the start position within a few seconds of entering Play Mode, and the wrist overlay's "Tiles for view" percentage climbs instead of staying at 0%.
+- [ ] Distant terrain refines to the configured 10 px Frame / 6 px PC screen-space error, and climbing or descending never blanks and re-streams the whole tileset.
 - [ ] Debug overlay reports plausible FPS, frame time, altitude, coordinates, memory, and load progress.
 - [ ] A representative 15-minute route sustains the target 90 Hz often enough for comfort; capture profiler evidence rather than assuming from GPU model.
 - [ ] Windows x64 player behaves the same as Play Mode.

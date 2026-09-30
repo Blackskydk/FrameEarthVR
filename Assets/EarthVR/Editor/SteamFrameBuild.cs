@@ -46,7 +46,37 @@ namespace EarthVR.Editor
         [MenuItem("EarthVR/Steam Frame/Build Release APK", priority = 22)]
         public static void BuildReleaseApk()
         {
-            BuildApk(false);
+            WithPrivateCredentialsExcluded(() => BuildApk(false));
+        }
+
+        public static void WithPrivateCredentialsExcluded(Action build)
+        {
+            // Keep the developer's files intact, but never copy them into a
+            // distributable APK. Restore them even if Unity reports a failure.
+            var backup = Path.Combine("Library", "EarthVRPrivateBuildBackup");
+            Directory.CreateDirectory(backup);
+            if (Directory.EnumerateFiles(backup).Any())
+                throw new InvalidOperationException("A previous private-file backup needs restoring from Library/EarthVRPrivateBuildBackup before building.");
+            var moved = new System.Collections.Generic.List<string>();
+            try
+            {
+                foreach (var name in new[] { "cesium-ion.local.json", "google-maps.local.json" })
+                    foreach (var suffix in new[] { "", ".meta" })
+                    {
+                        var path = Path.Combine("Assets", "StreamingAssets", "EarthVR", name + suffix);
+                        if (!File.Exists(path)) continue;
+                        File.Move(path, Path.Combine(backup, name + suffix));
+                        moved.Add(path);
+                    }
+                AssetDatabase.Refresh();
+                build();
+            }
+            finally
+            {
+                foreach (var path in moved)
+                    File.Move(Path.Combine(backup, Path.GetFileName(path)), path);
+                AssetDatabase.Refresh();
+            }
         }
 
         private static void BuildApk(bool development)
@@ -59,6 +89,8 @@ namespace EarthVR.Editor
             }
 
             ConfigureAndroid();
+            PlayerSettings.bundleVersion = EarthVR.Core.ReleaseBuildStamp.Version;
+            PlayerSettings.Android.bundleVersionCode = EarthVR.Core.ReleaseBuildStamp.AndroidVersionCode;
             if (!HasSteamFrameControllerProfile())
             {
                 throw new InvalidOperationException(

@@ -45,5 +45,31 @@ namespace EarthVR.Tests.Editor
 
             Assert.That(direction.magnitude, Is.EqualTo(1f).Within(0.0001f));
         }
+
+        [Test]
+        public void DaylightArrivalUsesLocalSolarNoon()
+        {
+            var arrival = SunSkyController.CalculateDaylightArrivalUtc(
+                new DateTime(2026, 9, 28, 18, 0, 0, DateTimeKind.Utc),
+                12.5683d,
+                55.6761d);
+            var solar = SolarPositionCalculator.Calculate(arrival, 55.6761d, 12.5683d);
+
+            Assert.That(arrival.Date, Is.EqualTo(new DateTime(2026, 9, 28)));
+            Assert.That(solar.ElevationDegrees, Is.GreaterThan(25d));
+        }
+
+        [Test]
+        public void DaylightArrivalEscapesPolarNight()
+        {
+            var arrival = SunSkyController.CalculateDaylightArrivalUtc(
+                new DateTime(2026, 12, 21, 18, 0, 0, DateTimeKind.Utc),
+                15.65d,
+                78.22d);
+            var solar = SolarPositionCalculator.Calculate(arrival, 78.22d, 15.65d);
+
+            Assert.That(arrival.Month, Is.EqualTo(6));
+            Assert.That(solar.ElevationDegrees, Is.GreaterThan(5d));
+        }
     }
 }

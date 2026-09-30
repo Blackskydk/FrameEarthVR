@@ -10,7 +10,8 @@ namespace EarthVR.UI
     /// An optional peripheral-vision darkening shown during fast continuous
     /// locomotion, sized by how fast the camera is physically moving through
     /// real space (not raw geographic speed, which is meaningless once scale is
-    /// applied). Off by default; the wrist menu can toggle <see cref="Enabled"/>.
+    /// applied). Off by default; the left-hand menu can toggle
+    /// <see cref="Enabled"/>.
     /// </summary>
     public sealed class ComfortVignetteController : MonoBehaviour
     {

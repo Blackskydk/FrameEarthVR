@@ -49,6 +49,8 @@ namespace EarthVR.Sky
         private float _sunElevation;
         private bool _pathRepresentsMoon;
         private float _pathVisibility;
+        private bool _overviewSunOverride;
+        private Vector3 _overviewSunDirection = Vector3.up;
         private readonly Gradient _pathGradient = new();
         private readonly GradientColorKey[] _pathColorKeys =
         {
@@ -107,7 +109,78 @@ namespace EarthVR.Sky
             return bestTime;
         }
 
+        /// <summary>Returns local solar noon for the requested date. During
+        /// polar night, where even noon is dark, it moves to the same year's
+        /// summer solstice so every arrival has useful daylight.</summary>
+        public static DateTime CalculateDaylightArrivalUtc(
+            DateTime date,
+            double longitude,
+            double latitude)
+        {
+            var utcDate = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+            var solarNoon = FindSolarNoonUtc(utcDate, latitude, longitude);
+            var elevation = SolarPositionCalculator.Calculate(
+                solarNoon,
+                latitude,
+                longitude).ElevationDegrees;
+            if (elevation >= 5d)
+                return solarNoon;
+
+            var summerMonth = latitude >= 0d ? 6 : 12;
+            var summerSolstice = new DateTime(
+                utcDate.Year,
+                summerMonth,
+                21,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc);
+            return FindSolarNoonUtc(summerSolstice, latitude, longitude);
+        }
+
         public bool IsConsumingTrigger(Transform hand) => _dragHand == hand;
+
+        /// <summary>Temporarily places the Sun behind the viewer so the visible
+        /// side of the tilted Earth is always illuminated. Astronomical time is
+        /// not changed and resumes immediately when the override is cleared.</summary>
+        public void SetOverviewSunDirection(Vector3 direction)
+        {
+            if (direction.sqrMagnitude < 0.000001f)
+                return;
+            _overviewSunOverride = true;
+            _overviewSunDirection = direction.normalized;
+            ApplyEnvironment();
+        }
+
+        public void ClearOverviewSunDirection()
+        {
+            if (!_overviewSunOverride)
+                return;
+            _overviewSunOverride = false;
+            ApplyEnvironment();
+        }
+
+        public void SetUtcTime(DateTime utcTime)
+        {
+            _utcTime = utcTime.Kind == DateTimeKind.Utc ? utcTime : utcTime.ToUniversalTime();
+            _pathDate = default;
+            ApplyEnvironment();
+        }
+
+        public void SetDaylightForLocation(double longitude, double latitude)
+        {
+            SetUtcTime(CalculateDaylightArrivalUtc(
+                _utcTime == default ? DateTime.UtcNow : _utcTime,
+                longitude,
+                latitude));
+        }
+
+        public void RefreshForReferenceFrameChange()
+        {
+            _pathLatitude = double.NaN;
+            EnsureSolarPath();
+            ApplyEnvironment();
+        }
 
         private void Update()
         {
@@ -356,8 +429,12 @@ namespace EarthVR.Sky
         {
             var llh = _navigation.LongitudeLatitudeHeight;
             var solar = SolarPositionCalculator.Calculate(_utcTime, llh.y, llh.x);
-            _sunDirection = solar.ToUnityDirection();
-            _sunElevation = (float)solar.ElevationDegrees;
+            _sunDirection = _overviewSunOverride
+                ? _overviewSunDirection
+                : solar.ToUnityDirection();
+            _sunElevation = _overviewSunOverride
+                ? 90f
+                : (float)solar.ElevationDegrees;
             var moonDirection = -_sunDirection;
 
             var daylight = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-8f, 6f, _sunElevation));

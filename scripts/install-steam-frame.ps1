@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$ApkPath = (Join-Path $PSScriptRoot '..\Builds\SteamFrame\FrameEarthVR.apk'),
+    [string]$ApkPath,
     [string]$DeviceHost = 'frame',
     [switch]$Usb,
     [switch]$NoLaunch
@@ -9,6 +9,9 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+if (-not $ApkPath) {
+    $ApkPath = Join-Path $projectRoot 'Builds\SteamFrame\FrameEarthVR.apk'
+}
 $projectVersionPath = Join-Path $projectRoot 'ProjectSettings\ProjectVersion.txt'
 $projectVersionText = Get-Content -LiteralPath $projectVersionPath -Raw
 $unityVersionMatch = [regex]::Match($projectVersionText, 'm_EditorVersion:\s*([^\r\n]+)')
@@ -49,14 +52,32 @@ else {
 }
 
 Write-Host "Connecting to Steam Frame at $serial..."
-& $adb connect $serial
-if ($LASTEXITCODE -ne 0) {
-    throw 'adb could not connect. Enable Developer Mode and launch Lepton Development on the headset.'
+$connectOutput = @(& $adb connect $serial 2>&1)
+$connectExitCode = $LASTEXITCODE
+$connectOutput | ForEach-Object { Write-Host $_ }
+
+$connectSucceeded = $connectExitCode -eq 0 -and
+    ($connectOutput -join "`n") -match '(?im)^(already )?connected to '
+
+if (-not $connectSucceeded) {
+    if ($Usb) {
+        throw @"
+Could not connect to the Steam Frame Lepton container over USB.
+On the headset, enable Developer Mode, launch Lepton Development, and wait for its Android home screen. Then reconnect USB, accept any authorization prompt, and retry with -Usb.
+"@
+    }
+
+    throw @"
+Nothing is accepting ADB connections at '$serial'.
+On the headset, enable Developer Mode, launch Lepton Development from the Steam Library, and wait for its Android home screen. Keep the headset and PC on the same network. If needed, retry with the headset IP from Quick Settings or Steam Settings > Internet:
+  .\scripts\install-steam-frame.ps1 -DeviceHost <headset-ip>
+"@
 }
 
-& $adb -s $serial get-state | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    throw "Steam Frame is not available as adb device '$serial'. Run 'adb devices' to inspect the connection."
+$deviceState = @(& $adb -s $serial get-state 2>&1)
+if ($LASTEXITCODE -ne 0 -or ($deviceState -join '') -notmatch '^device\s*$') {
+    $deviceState | ForEach-Object { Write-Host $_ }
+    throw "ADB connected to '$serial', but the Lepton device is not ready. Check the headset for an authorization prompt, then retry."
 }
 
 Write-Host "Installing $resolvedApk..."

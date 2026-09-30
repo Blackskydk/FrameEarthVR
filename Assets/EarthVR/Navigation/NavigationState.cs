@@ -5,7 +5,8 @@ namespace EarthVR.Navigation
     public enum MovementMode
     {
         Flight,
-        Grounded
+        Grounded,
+        Car
     }
 
     public sealed class NavigationState

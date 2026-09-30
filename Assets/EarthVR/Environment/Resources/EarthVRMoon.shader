@@ -54,17 +54,17 @@ Shader "EarthVR/Moon"
                 return output;
             }
 
-            float hash21(float2 point)
+            float hash21(float2 samplePosition)
             {
-                point = frac(point * float2(123.34, 456.21));
-                point += dot(point, point + 45.32);
-                return frac(point.x * point.y);
+                samplePosition = frac(samplePosition * float2(123.34, 456.21));
+                samplePosition += dot(samplePosition, samplePosition + 45.32);
+                return frac(samplePosition.x * samplePosition.y);
             }
 
-            float valueNoise(float2 point)
+            float valueNoise(float2 samplePosition)
             {
-                float2 cell = floor(point);
-                float2 fraction = frac(point);
+                float2 cell = floor(samplePosition);
+                float2 fraction = frac(samplePosition);
                 fraction = fraction * fraction * (3.0 - 2.0 * fraction);
                 return lerp(
                     lerp(hash21(cell), hash21(cell + float2(1, 0)), fraction.x),

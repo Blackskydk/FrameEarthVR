@@ -5,14 +5,16 @@ namespace EarthVR.Configuration
     [CreateAssetMenu(menuName = "EarthVR/Settings", fileName = "EarthVRSettings")]
     public sealed class EarthVRSettings : ScriptableObject
     {
-        [Header("Starting location (Copenhagen)")]
+        [Header("Starting location")]
+        public bool randomizeStartingLocation = true;
+        public string startPlaceName = "Copenhagen";
         public double startLongitude = 12.5683;
         public double startLatitude = 55.6761;
         [Min(0f)] public float startHeightMeters = 300f;
 
         [Header("User scale")]
-        [Min(0.01f)] public float minimumUserScale = 1f;
-        [Min(1f)] public float maximumUserScale = 100000f;
+        [Min(0.01f)] public float minimumUserScale = 0.05f;
+        [Min(1f)] public float maximumUserScale = 20000000f;
         [Min(0.5f)] public float realEyeHeightMeters = 1.75f;
         [Min(0.01f)] public float groundedScaleDoublingsPerSecond = 1.6f;
 
@@ -22,6 +24,7 @@ namespace EarthVR.Configuration
         [Min(0f)] public float accelerationSeconds = 0.35f;
         [Min(0f)] public float decelerationSeconds = 0.5f;
         [Min(1f)] public float altitudeSpeedMultiplier = 18f;
+        [Min(0f)] public float altitudeCruiseFractionPerSecond = 0.35f;
         [Min(1f)] public float scaleSpeedExponent = 0.65f;
         [Min(1f)] public float boostSpeedMultiplier = 8f;
 
@@ -29,8 +32,6 @@ namespace EarthVR.Configuration
         [Min(1f)] public float pointerDefaultLengthMeters = 25f;
         [Min(10f)] public float pointerMaximumLengthMeters = 2000000f;
         [Min(10f)] public float maximumGrabDistanceMeters = 2000000f;
-        [Min(0.05f)] public float grabGainReferenceDistanceMeters = 0.5f;
-        [Min(1f)] public float maximumGrabGain = 200f;
 
         [Header("Drag momentum")]
         public bool dragMomentumEnabled = true;
@@ -40,7 +41,15 @@ namespace EarthVR.Configuration
         [Header("Flight safety and comfort")]
         [Min(0f)] public float groundApproachSafetyMeters = 150f;
         [Range(0.05f, 1f)] public float minimumApproachSpeedFraction = 0.15f;
+        [Min(0.01f)] public float groundApproachRelaxSeconds = 0.6f;
+        [Min(0f)] public float groundApproachLookaheadSeconds = 1.2f;
         [Min(0f)] public float boostEaseSeconds = 0.25f;
+        [Min(0.02f)] public float flightCollisionRadiusMeters = 0.18f;
+        [Min(0f)] public float flightSurfaceClearanceMeters = 0.03f;
+
+        [Header("Mode-transition perspective shift")]
+        [Min(0.05f)] public float modeTransitionSeconds = 0.7f;
+        [Min(0.5f)] public float modeGroundSampleTimeoutSeconds = 5f;
         [Header("Flight audio")]
         [Range(0f, 1f)] public float soaringWindMaximumVolume = 0.42f;
         [Min(0.01f)] public float soaringWindResponseSeconds = 0.3f;
@@ -56,25 +65,71 @@ namespace EarthVR.Configuration
         [Header("Grounding")]
         [Min(0f)] public float groundClearanceMeters = 0.08f;
         [Min(0.1f)] public float groundProbeDistanceMeters = 1500f;
-        [Min(0.01f)] public float groundCorrectionSeconds = 0.35f;
+        [Min(0.01f)] public float groundCorrectionSeconds = 0.55f;
+        [Min(0.01f)] public float groundCorrectionAscendSeconds = 0.45f;
+        [Min(0f)] public float groundedFloorLookaheadSeconds = 0.25f;
         [Min(0.1f)] public float heightSampleIntervalSeconds = 1.5f;
         [Min(100f)] public float searchArrivalHeightMeters = 2500f;
 
+        [Header("Car mode")]
+        [Min(1f)] public float carMaximumSpeedMetersPerSecond = 32f;
+        [Min(1f)] public float carMaximumReverseSpeedMetersPerSecond = 10f;
+        [Min(0.1f)] public float carAccelerationMetersPerSecondSquared = 8f;
+        [Min(0.1f)] public float carBrakingMetersPerSecondSquared = 14f;
+        [Min(1f)] public float carSteeringDegreesPerSecond = 72f;
+        [Min(0.1f)] public float carCollisionRadiusMeters = 0.65f;
+
+        [Header("Geographic origin rebasing")]
+        [Min(10f)] public float originRebaseDistanceUnityMeters = 2000f;
+        [Min(0f)] public float originRebaseCooldownSeconds = 0.25f;
+
+        [Header("Loading-aware arrivals")]
+        [Range(1f, 100f)] public float arrivalLoadPercentage = 85f;
+        [Min(0f)] public float arrivalMinimumBlackSeconds = 0.65f;
+        [Min(1f)] public float arrivalLoadTimeoutSeconds = 20f;
+        [Min(0.01f)] public float arrivalFadeSeconds = 0.25f;
+
+        [Header("Miniature globe picker")]
+        [Min(0.05f)] public float miniatureGlobeRadiusMeters = 0.12f;
+        [Range(1f, 2f)] public float miniatureGlobeHoverScale = 1.35f;
+        [Range(0.5f, 10f)] public float miniatureGlobeDragThresholdDegrees = 2f;
+
+        [Header("Planetary overview")]
+        [Min(1000f)] public float globeOverviewUserScale = 4000000f;
+        [Range(20f, 80f)] public float globeOverviewDiameterDegrees = 48f;
+        [Min(0.25f)] public float globeOverviewTransitionSeconds = 3f;
+        [Min(0.1f)] public float globeOverviewDestinationOrbitSeconds = 1.15f;
+        [Min(0.5f)] public float globeOverviewZoomInSeconds = 6f;
+        [Range(1f, 100f)] public float globeOverviewMinimumLoadPercentage = 60f;
+        [Range(0.05f, 1f)] public float globeOverviewMinimumZoomSpeed = 0.25f;
+        [Min(1000f)] public float globeOverviewLabelsMinimumScale = 100000f;
+        [Range(4, 64)] public int globeOverviewMaximumLabels = 28;
+        [Range(0.01f, 0.2f)] public float globeOverviewLabelSeparation = 0.055f;
+
         [Header("Tiles")]
+        [Tooltip("Try Google Photorealistic 3D Tiles before the Cesium terrain fallback. Disable while Google root requests are quota-limited.")]
+        public bool preferGooglePhotorealisticTiles = true;
         [Min(1f)] public float pcMaximumScreenSpaceError = 6f;
-        [Min(1f)] public float standaloneMaximumScreenSpaceError = 10f;
+        [Min(1f)] public float standaloneMaximumScreenSpaceError = 6f;
         [Min(64)] public int pcCacheMegabytes = 3072;
-        [Min(64)] public int standaloneCacheMegabytes = 1024;
-        [Min(1)] public int maximumSimultaneousTileLoads = 12;
+        [Min(64)] public int standaloneCacheMegabytes = 1536;
+        [Min(1)] public int maximumSimultaneousTileLoads = 20;
         public bool createPhysicsMeshes = true;
 
         [Header("Camera")]
         [Min(0.001f)] public float humanNearClipMeters = 0.03f;
-        [Min(1000f)] public float geographicFarClipMeters = 20000000f;
+        [Tooltip("Minimum geographic camera range. Above low altitude, the actual range grows automatically to stay beyond Earth's geometric horizon.")]
+        [Min(1000f)] public float geographicFarClipMeters = 100000f;
+        [Min(1f)] public float horizonFarClipMultiplier = 1.35f;
+
+        [Header("High-altitude horizon")]
+        [Min(0f)] public float horizonFogStartAltitudeMeters = 10000f;
+        [Range(0.1f, 1f)] public float horizonFogStartFraction = 0.72f;
+        [Min(0.5f)] public float horizonFogEndFraction = 1.04f;
 
         [Header("Platform quality profiles")]
         [Range(0.5f, 2f)] public float pcRenderScale = 1f;
-        [Range(0.5f, 1.5f)] public float standaloneRenderScale = 0.9f;
+        [Range(0.5f, 1.5f)] public float standaloneRenderScale = 1f;
         [Range(0, 8)] public int pcMsaa = 2;
         [Range(0, 4)] public int standaloneMsaa = 2;
 

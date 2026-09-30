@@ -11,4 +11,6 @@ EarthVR streams Google Photorealistic 3D Tiles through Cesium ion.
 
 The local file and its Unity `.meta` file are ignored by Git. For editor-only convenience, `EARTHVR_CESIUM_ION_ACCESS_TOKEN` may instead be defined in the environment before Unity starts.
 
-Access tokens shipped in a player can be extracted. Before distributing a build, create a separate application token with only `assets:read`, restrict it to asset `2275207`, and monitor its usage in Cesium ion.
+Public releases do not include a publisher token. End users enter their own token in the first-run setup panel; release runtime ignores developer environment variables and bundled configuration. Use **Build Release APK** to exclude your local credential files while preserving them for development. See [standalone installation](STANDALONE_INSTALL.md).
+
+Google Photorealistic 3D Tiles root requests have their own Cesium ion plan quota. Repeated HTTP 429 responses from `tile.googleapis.com` while this project uses `FromCesiumIon` indicate that upstream root access is rate- or quota-limited, not that the unused local Google key is invalid. Check the ion Usage dashboard; during a short-term limit, EarthVR pauses requests and retries with bounded exponential backoff.

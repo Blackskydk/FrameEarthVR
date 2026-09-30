@@ -37,10 +37,10 @@ namespace EarthVR.Core
 
             rig.LeftController = CreateController(
                 "Left Controller", rig.TrackingOrigin, input.LeftPositionAction, input.LeftRotationAction,
-                new Color(0.1f, 0.55f, 1f), settings);
+                new Color(0.1f, 0.55f, 1f), settings, false);
             rig.RightController = CreateController(
                 "Right Controller (Dominant)", rig.TrackingOrigin, input.RightPositionAction, input.RightRotationAction,
-                new Color(1f, 0.35f, 0.08f), settings);
+                new Color(1f, 0.35f, 0.08f), settings, true);
 
             return rig;
         }
@@ -51,11 +51,31 @@ namespace EarthVR.Core
             UnityEngine.InputSystem.InputAction position,
             UnityEngine.InputSystem.InputAction rotation,
             Color color,
-            EarthVRSettings settings)
+            EarthVRSettings settings,
+            bool createPointer)
         {
             var controller = new GameObject(name).transform;
             controller.SetParent(parent, false);
             controller.gameObject.AddComponent<TrackedActionPose>().Configure(position, rotation);
+
+            var shader = Resources.Load<Shader>("EarthVRHandUnlit") ?? Shader.Find("Universal Render Pipeline/Unlit");
+            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            body.name = "Visible Controller Grip";
+            Object.Destroy(body.GetComponent<Collider>());
+            body.transform.SetParent(controller, false);
+            body.transform.localPosition = new Vector3(0f, -0.035f, -0.035f);
+            body.transform.localScale = new Vector3(0.045f, 0.07f, 0.045f);
+            var bodyRenderer = body.GetComponent<MeshRenderer>();
+            bodyRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            bodyRenderer.receiveShadows = false;
+            if (shader != null)
+                bodyRenderer.sharedMaterial = new Material(shader) { color = color };
+
+            // The left hand carries the miniature destination globe. A second
+            // beam through that globe reads as a visual streak and makes the map
+            // harder to inspect, so only the dominant/right hand owns a pointer.
+            if (!createPointer)
+                return controller;
 
             var ray = new GameObject("Direction Indicator", typeof(LineRenderer));
             ray.transform.SetParent(controller, false);
@@ -71,9 +91,6 @@ namespace EarthVR.Core
             line.shadowCastingMode = ShadowCastingMode.Off;
             line.receiveShadows = false;
 
-            var shader = Shader.Find("Sprites/Default");
-            if (shader == null)
-                shader = Shader.Find("Universal Render Pipeline/Unlit");
             if (shader != null)
             {
                 line.sharedMaterial = new Material(shader) { color = Color.white };

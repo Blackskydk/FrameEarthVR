@@ -24,7 +24,7 @@ file, and click **Upload** again for the same title. Pairing is only needed once
 Keep the existing installation to preserve your saved token and settings.
 This follows [Valve's Frame installation guide](https://partner.steamgames.com/doc/steamhardware/steamframe/loadgames).
 
-**Direct updates (preview.3 source):** the hand menu adds **Download & Apply
+**Direct updates (preview.4 source):** the hand menu adds **Download & Apply
 Update** for APK and Windows builds. Windows PCs include the updater. Frame
 needs a one-time helper setup for Lepton/Proton, using **one terminal command**;
 future updates download and apply on the headset. See [on-device update setup
@@ -35,7 +35,7 @@ On first launch, supply **your own Cesium ion token** with `assets:read` access 
 
 The source checkout itself is not installable; a release must first be built and published. Unity cache folders, builds, and local credentials are excluded from Git.
 
-The app checks for updates at startup and offers **Check for Updates** in the hand menu. Preview.2 opens the release page; preview.3 downloads and hands the update to its device helper. The update feed requires public releases; no GitHub credentials are requested.
+The app checks for updates at startup and offers **Check for Updates** in the hand menu. Preview.2 opens the release page; preview.4 downloads and hands the update to its device helper. The update feed requires public releases; no GitHub credentials are requested.
 
 ## Pinned toolchain
 

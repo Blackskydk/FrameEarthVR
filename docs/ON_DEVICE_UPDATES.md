@@ -1,6 +1,6 @@
 # Update from inside Frame Earth VR
 
-The `1.0.0-preview.3` source adds **Download & Apply Update** to the hand menu.
+The `1.0.0-preview.4` source adds **Download & Apply Update** to the hand menu.
 It downloads the correct build onto the device, verifies its SHA-256 digest
 against GitHub release metadata, and hands it to an updater. The game closes
 only after the updater has verified and accepted the download. Terrain tokens,
@@ -19,7 +19,7 @@ includes its PowerShell updater; you do not type any commands or install an
 extra runtime. The updater waits for the game process to exit, backs up the
 previous game files, applies the new files, and relaunches the game.
 
-For an old Windows build without the updater, install preview.3 or later
+For an old Windows build without the updater, install preview.4 or later
 manually once. All published packages must use the same executable name.
 
 ## Frame: APK through Lepton or Windows through Proton
@@ -79,7 +79,7 @@ For maintainers: build via **EarthVR > Steam Frame > Build Release APK** and
 **EarthVR > Windows > Build Release**, then package both with:
 
 ```powershell
-.\scripts\prepare-public-release.ps1 -Version v1.0.0-preview.3 -WindowsFolder .\Builds\Windows
+.\scripts\prepare-public-release.ps1 -Version v1.0.0-preview.4 -WindowsFolder .\Builds\Windows
 ```
 
 Upload the APK, Windows ZIP, `frame-updater.py`, and `SHA256SUMS.txt` to the

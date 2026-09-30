@@ -100,7 +100,7 @@ Google API key is included. Tokens are stored on your device, outside the APK.
 Paste uses the headset's clipboard, not your PC clipboard. A controller
 keyboard is available. Your Cesium account's terms and usage limits apply.
 
-From preview.3, select Download & Apply Update in the hand menu. Downloads
+From preview.4, select Download & Apply Update in the hand menu. Downloads
 are verified and applied after the game closes. On a Windows PC, the updater
 is included. Frame needs the one-time helper setup for APK and Proton builds:
 download frame-updater.py to the headset's Downloads folder and run

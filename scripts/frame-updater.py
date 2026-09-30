@@ -325,7 +325,7 @@ def configure_build(platform):
     inbox = persistent / "EarthVR/Updates"
     if platform == "apk":
         if subprocess.run(["podman", "unshare", "test", "-d", str(inbox)]).returncode != 0:
-            raise SystemExit("Launch preview.3 or later once to create its updater folder, then close it and retry")
+            raise SystemExit("Launch preview.4 or later once to create its updater folder, then close it and retry")
     else:
         inbox.mkdir(parents=True, exist_ok=True)
     return {"platform": platform, "install": str(install), "inbox": str(inbox),

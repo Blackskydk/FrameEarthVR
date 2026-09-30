@@ -144,7 +144,8 @@ namespace EarthVR.Navigation
         {
             var shader = Shader.Find("Universal Render Pipeline/Lit") ??
                          Shader.Find("Standard") ??
-                         Shader.Find("Universal Render Pipeline/Unlit");
+                         Shader.Find("Universal Render Pipeline/Unlit") ??
+                         Resources.Load<Shader>("EarthVRHandUnlit");
             var material = new Material(shader)
             {
                 name = $"EarthVR {name}",

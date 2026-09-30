@@ -106,7 +106,8 @@ is included. Frame needs the one-time helper setup for APK and Proton builds:
 download frame-updater.py to the headset's Downloads folder and run
 python3 ~/Downloads/frame-updater.py --setup in a Frame terminal. Reopen the
 game from Steam after a Frame update. Public GitHub releases are required.
-The Frame helper is a preview and still needs a full headset update/relaunch test.
+The APK helper passed a Frame replacement/relaunch test using its local inbox.
+The in-game button and a live Windows/Proton update still need verification.
 
 Files: FrameEarthVR.apk, optional FrameEarthVR-Windows.zip, frame-updater.py,
 SHA256SUMS.txt. Use the APK for Lepton, or the ZIP for Windows/Proton.

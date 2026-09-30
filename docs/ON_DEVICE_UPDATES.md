@@ -69,11 +69,14 @@ backup is kept. Do not replace or delete the game's compatdata during updates.
   a GitHub token to check or download them.
 - APK releases must retain their signing key and increase the Android version
   code. Set both version values in `ReleaseBuildStamp` before building.
-- The APK, Windows, and helper code have local build/unit verification. Frame
-  integration still needs headset testing: helper folder discovery, permissions
-  across Lepton/Proton, container shutdown, then relaunch into the new version
-  with credentials and saved places intact. Do not advertise it as a tested
-  one-click Frame updater until that round trip passes.
+- Both builds and the updater checks pass locally. The APK helper was also tested
+  on a Steam Frame: automatic folder discovery, rootless Lepton permissions,
+  public release download and digest verification, waiting for container exit,
+  replacement with a matching release hash, backup, and relaunch into preview.4.
+  The relaunched game initializes its update heartbeat without startup errors.
+  That test submitted a request through the local inbox; a headset interaction
+  test of the download button remains. A live Windows/Proton update and saved
+  credential/bookmark preservation still need verification.
 
 For maintainers: build via **EarthVR > Steam Frame > Build Release APK** and
 **EarthVR > Windows > Build Release**, then package both with:

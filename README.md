@@ -10,7 +10,7 @@ source download, terminal commands, or scripts are needed.
 1. **Download on your PC:** get `FrameEarthVR.apk` from [Releases](https://github.com/Blackskydk/FrameEarthVR/releases) and save it in a new folder called `FrameEarthVR` containing only that APK. In Steam, find **SteamOS Devkit Client** in your Library (include **Software/Tools** in the filter), install it, and open it. [Valve's tool installation guide](https://partner.steamgames.com/doc/steamhardware/loadgames#2).
 2. **Pair once:** on Frame, enable **Settings > System > Developer Mode**, then select **Settings > Developer > Pair new host**. In the PC's Devkit Client, open **Devkits**, click **Register** beside your Frame, and accept on the headset.
 3. **Install:** open **Title Upload**, enter the values below, and click **Upload**.
-4. **Play:** on Frame, open **Library > Non-Steam > Devkit Game: Frame Earth VR**. Enter your own Cesium ion token in the game's setup panel and select **Save & Start**.
+4. **Set up and play:** launch once from **Library > Non-Steam > Devkit Game: Frame Earth VR**, then close it. On your PC, right-click the release's `setup-token.ps1`, choose **Run with PowerShell**, select **APK on Steam Frame**, and paste your own Cesium token. Reopen the game. The in-game controller keyboard is also available.
 
 | Title Upload field | Enter/select |
 |---|---|
@@ -23,6 +23,13 @@ source download, terminal commands, or scripts are needed.
 file, and click **Upload** again for the same title. Pairing is only needed once.
 Keep the existing installation to preserve your saved token and settings.
 This follows [Valve's Frame installation guide](https://partner.steamgames.com/doc/steamhardware/steamframe/loadgames).
+
+**Token setup (preview.5):** download `setup-token.ps1` from the release, right-click
+it on your Windows PC and choose **Run with PowerShell**. Paste your own token in
+the dialog and choose Windows, Frame APK, or Frame Windows/Proton. For Frame,
+pair with Devkit Client, launch the game once, and close it before setup. Reopen
+from Steam afterwards. The saved token survives updates. See the
+[token setup guide](docs/STANDALONE_INSTALL.md#supply-your-own-token-on-first-launch).
 
 **Direct updates (preview.4 source):** the hand menu adds **Download & Apply
 Update** for APK and Windows builds. Windows PCs include the updater. Frame

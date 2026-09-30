@@ -44,9 +44,9 @@ namespace EarthVR.UI
             _panel.transform.localScale = Vector3.one * 0.001f;
             _panel.GetComponent<Image>().color = new Color(0.02f, 0.04f, 0.08f, 1f);
             TextAt("FRAME EARTH VR — YOUR ACCOUNT", 280, 29);
-            TextAt("Use your own Cesium ion assets:read token for asset 2275207.\nCreate it at ion.cesium.com. No separate Google API key is needed.\nPaste from this device's clipboard, or use the keyboard below.", 200, 20);
+            TextAt("Use your own Cesium ion assets:read token for asset 2275207.\nRun setup-token.ps1 on your PC to save it on this device.\nOr use the controller keyboard below. Tokens survive updates.", 200, 20);
             _tokenLabel = TextAt("No token entered", 115, 23);
-            ButtonAt("PASTE", -300, 50, () => { _token = GUIUtility.systemCopyBuffer.Trim(); RefreshToken(); });
+            ButtonAt(Application.platform == RuntimePlatform.Android ? "PC SETUP HELP" : "PASTE", -300, 50, PasteToken);
             ButtonAt("CLEAR", -100, 50, () => { _token = string.Empty; RefreshToken(); });
             ButtonAt("BACKSPACE", 100, 50, () => { if (_token.Length > 0) _token = _token[..^1]; RefreshToken(); });
             ButtonAt("a / A", 300, 50, () => { _uppercase = !_uppercase; RefreshToken(); });
@@ -99,6 +99,25 @@ namespace EarthVR.UI
 
         private void RefreshToken() => _tokenLabel.text = _token.Length == 0
             ? "No token entered" : $"Token entered: {_token.Length} characters (hidden) · Case: {(_uppercase ? "A" : "a")}";
+
+        private void PasteToken()
+        {
+            // Lepton's clipboard bridge can terminate the native player. Do not
+            // enter Unity's clipboard API on Android, even inside a try/catch.
+            if (Application.platform == RuntimePlatform.Android)
+            {
+                _status.text = "Close the game, run setup-token.ps1 on your paired PC, then reopen from Steam.";
+                return;
+            }
+            try
+            {
+                var value = (GUIUtility.systemCopyBuffer ?? string.Empty).Trim();
+                if (!UserCredentials.IsUsable(value)) { _status.text = "Clipboard does not contain a valid token."; return; }
+                _token = value;
+                RefreshToken();
+            }
+            catch (System.Exception) { _status.text = "Clipboard unavailable. Use PC setup or the controller keyboard."; }
+        }
 
         private void OpenKeyboard()
         {

@@ -6,8 +6,8 @@ namespace EarthVR.Core
 {
     public static class ReleaseBuildStamp
     {
-        public const string Version = "1.0.0-preview.4";
-        public const int AndroidVersionCode = 4;
+        public const string Version = "1.0.0-preview.5";
+        public const int AndroidVersionCode = 5;
     }
 
     /// <summary>Semantic release comparison, including preview.9 versus preview.10.</summary>

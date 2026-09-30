@@ -9,18 +9,54 @@ in a release, installer URL, or GitHub issue.
 
 ## Supply your own token on first launch
 
+For the **native Windows build**, extract the complete `FrameEarthVR-Windows.zip`
+into a writable folder, run token setup with **Windows on this PC**, then launch
+`FrameEarthVR.exe`. The folder can be moved without moving its saved token.
+For **Windows/Proton on Frame**, install the extracted Windows build through
+Devkit Client using Proton, launch it once, close it, and choose **Windows/Proton
+on Steam Frame** in token setup. APK installation uses Lepton and the README's
+Devkit guide. Tokens are configured after the initial installation; they are
+never baked into the downloaded app.
+
 Create a [Cesium ion](https://ion.cesium.com/) account, add Google Photorealistic
 3D Tiles from the Asset Depot, and create an application access token with
 `assets:read` permission for asset `2275207`. Follow
 [Cesium's token guide](https://cesium.com/learn/ion/cesium-ion-access-tokens/).
 Your account's terms, plan, quotas, and any applicable charges are your own.
 
-The app opens a setup panel before terrain loads. Paste your token from the
-**headset's** clipboard, use the controller keyboard (case-sensitive), or try
-the system keyboard if available in your Lepton runtime. Select **Save & Start**.
-The app verifies access to the tiles asset before saving; internet is required.
-The controller keyboard supports token letters, numbers, periods, hyphens,
-and underscores. Copying on the PC does not automatically copy to the headset.
+The easiest route is **PC token setup** (preview.5): download `setup-token.ps1`
+from the release, right-click it in Windows Explorer, and select **Run with
+PowerShell**. Paste your token into the masked dialog and choose **Windows on
+this PC**, **APK on Steam Frame**, or **Windows/Proton on Steam Frame**. It checks
+access with Cesium and saves the token directly into the game's persistent data.
+For Frame, pair in Devkit Client and launch the game once to create its data
+folder, then close it before saving. The PC and Frame must be on the same network.
+Windows OpenSSH Client or Git for Windows supplies SSH. Then reopen from Steam.
+For native Windows, token setup can run before the game's very first launch.
+
+If Windows blocks the downloaded script, open its Properties and choose Unblock.
+Alternatively, run this single command in the folder where you downloaded it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup-token.ps1
+```
+
+For an installation script, supply a **file path** parameter rather than putting
+the token itself into command history:
+
+```powershell
+.\setup-token.ps1 -Target FrameApk -TokenFile .\my-token.txt
+```
+
+The file contains only the user's token. Use `Windows` or `FrameWindows` for the
+other destinations; `-DeviceHost` accepts a Frame hostname/IP. Delete the input
+file when finished. The setup sends the token over encrypted SSH stdin, never
+through Steam launch options, the APK, a release URL, or SSH command arguments.
+
+The in-game setup panel remains available with a case-sensitive controller
+keyboard and **Save & Start**. In the APK, **PC SETUP HELP** replaces Paste because
+the native clipboard call can crash under Lepton. Windows Paste remains available.
+Both the setup script and in-game Save check Cesium asset access before saving.
 
 Only a Cesium ion token is required. The app accesses Google 3D Tiles through
 Cesium ion; the separate Google API key loader is currently unused.
@@ -30,7 +66,10 @@ outside the APK. This is device storage, not encrypted secure storage. They
 are masked on the setup panel and are not sent to the publisher;
 the app sends them to Cesium to authorize terrain access. Reopen **Your Cesium
 Account** in the hand menu to replace or forget a token. Uninstalling/clearing
-app data may remove it; a normal same-signature APK update should preserve it.
+app data may remove it. The updater changes only the game files, keeping this
+data folder and the existing Steam shortcut/compatdata. APK and Windows/Proton
+are separate installations, so configure each once if you use both. Keep the
+same package ID, Windows company/product name, and Steam shortcut across updates.
 
 ## Check for updates
 

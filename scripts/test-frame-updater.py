@@ -35,12 +35,15 @@ class UpdaterTests(unittest.TestCase):
         return payload
 
     def test_windows_replacement_preserves_user_files(self):
+        credentials = self.inbox.parent / "cesium-ion.local.json"
+        credentials.write_text('{"accessToken":"user-test-token"}')
         (self.root / "FrameEarthVR.exe").write_bytes(b"old")
         (self.root / "my-file.txt").write_text("keep")
         updater.apply_windows(self.archive(), self.root)
         self.assertEqual((self.root / "FrameEarthVR.exe").read_bytes(), b"new")
         self.assertEqual((self.root / ".earthvr-previous/FrameEarthVR.exe").read_bytes(), b"old")
         self.assertEqual((self.root / "my-file.txt").read_text(), "keep")
+        self.assertEqual(credentials.read_text(), '{"accessToken":"user-test-token"}')
 
     def test_windows_rollback_after_move_failure(self):
         (self.root / "FrameEarthVR.exe").write_bytes(b"old")
@@ -90,6 +93,8 @@ class UpdaterTests(unittest.TestCase):
         self.assertFalse((self.root / ".earthvr-previous").exists())
 
     def test_apk_replaced_without_touching_data(self):
+        credentials = self.inbox.parent / "cesium-ion.local.json"
+        credentials.write_text('{"accessToken":"user-test-token"}')
         (self.root / "FrameEarthVR.apk").write_bytes(b"old")
         payload = self.inbox / "payload.apk"
         payload.write_bytes(b"new")
@@ -97,6 +102,7 @@ class UpdaterTests(unittest.TestCase):
         self.assertEqual((self.root / "FrameEarthVR.apk").read_bytes(), b"new")
         self.assertEqual((self.root / ".earthvr-previous-apk").read_bytes(), b"old")
         self.assertEqual(len(list(self.root.glob("*.apk"))), 1)
+        self.assertEqual(credentials.read_text(), '{"accessToken":"user-test-token"}')
 
     def request(self):
         (self.root / "FrameEarthVR.apk").write_bytes(b"old")

@@ -50,6 +50,9 @@ Copy-Item -LiteralPath $resolvedApk -Destination $publicApk
 $hash = (Get-FileHash -LiteralPath $publicApk -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  FrameEarthVR.apk" | Set-Content -LiteralPath (Join-Path $outputFolder 'SHA256SUMS.txt') -Encoding ascii
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'frame-updater.py') -Destination (Join-Path $outputFolder 'frame-updater.py')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'setup-token.ps1') -Destination (Join-Path $outputFolder 'setup-token.ps1')
+$setupHash = (Get-FileHash -LiteralPath (Join-Path $outputFolder 'setup-token.ps1') -Algorithm SHA256).Hash.ToLowerInvariant()
+"$setupHash  setup-token.ps1" | Add-Content -LiteralPath (Join-Path $outputFolder 'SHA256SUMS.txt') -Encoding ascii
 $helperHash = (Get-FileHash -LiteralPath (Join-Path $outputFolder 'frame-updater.py') -Algorithm SHA256).Hash.ToLowerInvariant()
 "$helperHash  frame-updater.py" | Add-Content -LiteralPath (Join-Path $outputFolder 'SHA256SUMS.txt') -Encoding ascii
 if ($WindowsFolder) {
@@ -97,8 +100,13 @@ On first launch, provide your own Cesium ion token with assets:read access to
 Google Photorealistic 3D Tiles asset 2275207. No publisher token or separate
 Google API key is included. Tokens are stored on your device, outside the APK.
 
-Paste uses the headset's clipboard, not your PC clipboard. A controller
-keyboard is available. Your Cesium account's terms and usage limits apply.
+Download setup-token.ps1 to your Windows PC, right-click it and choose Run with
+PowerShell. Paste your own token into the masked dialog and choose Windows,
+Frame APK, or Frame Windows/Proton. Frame must already be paired in Devkit Client
+and the game launched once, then closed. Reopen it after saving. The token stays
+in its persistent app-data folder across updates. No token is passed on a command
+line. The APK avoids Lepton's clipboard API; a controller keyboard remains available.
+Your Cesium account's terms and usage limits apply.
 
 From preview.4, select Download & Apply Update in the hand menu. Downloads
 are verified and applied after the game closes. On a Windows PC, the updater
@@ -109,7 +117,7 @@ game from Steam after a Frame update. Public GitHub releases are required.
 The APK helper passed a Frame replacement/relaunch test using its local inbox.
 The in-game button and a live Windows/Proton update still need verification.
 
-Files: FrameEarthVR.apk, optional FrameEarthVR-Windows.zip, frame-updater.py,
+Files: FrameEarthVR.apk, optional FrameEarthVR-Windows.zip, frame-updater.py, setup-token.ps1,
 SHA256SUMS.txt. Use the APK for Lepton, or the ZIP for Windows/Proton.
 "@ | Set-Content -LiteralPath (Join-Path $outputFolder 'RELEASE_NOTES.md') -Encoding utf8
 Write-Host "Prepared release files in $outputFolder"

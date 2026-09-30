@@ -2,13 +2,40 @@
 
 Frame Earth VR is a personal-use Unity/OpenXR prototype for exploring Google Photorealistic 3D Tiles streamed through Cesium ion at human and giant scales. The first target is Windows PC VR with an HTC Vive headset, Valve Index controllers, and SteamVR as the active OpenXR runtime. The code avoids the legacy SteamVR Unity plugin.
 
-## Install the standalone Steam Frame app
+## Install on Steam Frame — no terminal needed
 
-Use a prebuilt `FrameEarthVR.apk` from [GitHub Releases](https://github.com/Blackskydk/FrameEarthVR/releases). Install it with [FrameDrop](https://framedropvr.com/) to add it to your Frame's Steam library, or use Valve's SteamOS Devkit Client with the Lepton runtime. Players do not need Unity. Release notes include **Install with FrameDrop** when the APK and manifest have been published.
+You need a PC running Steam and a Frame on the same Wi-Fi network. No Unity,
+source download, terminal commands, or scripts are needed.
+
+1. **Download on your PC:** get `FrameEarthVR.apk` from [Releases](https://github.com/Blackskydk/FrameEarthVR/releases) and save it in a new folder called `FrameEarthVR` containing only that APK. In Steam, find **SteamOS Devkit Client** in your Library (include **Software/Tools** in the filter), install it, and open it. [Valve's tool installation guide](https://partner.steamgames.com/doc/steamhardware/loadgames#2).
+2. **Pair once:** on Frame, enable **Settings > System > Developer Mode**, then select **Settings > Developer > Pair new host**. In the PC's Devkit Client, open **Devkits**, click **Register** beside your Frame, and accept on the headset.
+3. **Install:** open **Title Upload**, enter the values below, and click **Upload**.
+4. **Play:** on Frame, open **Library > Non-Steam > Devkit Game: Frame Earth VR**. Enter your own Cesium ion token in the game's setup panel and select **Save & Start**.
+
+| Title Upload field | Enter/select |
+|---|---|
+| Name | `Frame Earth VR` |
+| Local Folder | The `FrameEarthVR` folder you created |
+| Start Command | `FrameEarthVR.apk` |
+| Runtime | **Lepton** (some client versions/docs call it **Android**) |
+
+**Updating:** download the newer APK into the same folder, replacing the old
+file, and click **Upload** again for the same title. Pairing is only needed once.
+Keep the existing installation to preserve your saved token and settings.
+This follows [Valve's Frame installation guide](https://partner.steamgames.com/doc/steamhardware/steamframe/loadgames).
+
+**Direct updates (preview.3 source):** the hand menu adds **Download & Apply
+Update** for APK and Windows builds. Windows PCs include the updater. Frame
+needs a one-time helper setup for Lepton/Proton, using **one terminal command**;
+future updates download and apply on the headset. See [on-device update setup
+and test status](docs/ON_DEVICE_UPDATES.md). Frame integration still needs
+headset validation. Updates use this repository's public GitHub releases.
 
 On first launch, supply **your own Cesium ion token** with `assets:read` access to Google Photorealistic 3D Tiles asset `2275207`. The app checks and saves it on your headset. No publisher token or separate Google API key is needed. See the [installation and first-run guide](docs/STANDALONE_INSTALL.md).
 
 The source checkout itself is not installable; a release must first be built and published. Unity cache folders, builds, and local credentials are excluded from Git.
+
+The app checks for updates at startup and offers **Check for Updates** in the hand menu. Preview.2 opens the release page; preview.3 downloads and hands the update to its device helper. The update feed requires public releases; no GitHub credentials are requested.
 
 ## Pinned toolchain
 
@@ -21,7 +48,7 @@ The source checkout itself is not installable; a release must first be built and
 
 The versions are pinned in `Packages/manifest.json`. Cesium is obtained from its official scoped registry. Unity 6.3 is the current LTS line; Cesium 1.25.x supports Windows x64 and Android ARM64. See the official [Unity 6 release page](https://unity.com/releases/unity-6), [Cesium quickstart](https://cesium.com/learn/unity/unity-quickstart/), and [Valve Unity guidance for Steam Frame](https://partner.steamgames.com/doc/steamhardware/steamframe/engines/unity).
 
-## First-time setup
+## Developer setup — building from source
 
 1. Install Unity `6000.3.14f1` in Unity Hub with **Windows Build Support (IL2CPP)**. For Steam Frame builds, also add **Android Build Support**, **Android SDK & NDK Tools**, and **OpenJDK**.
 2. In SteamVR, open **Settings > OpenXR** and make SteamVR the current OpenXR runtime.
@@ -39,7 +66,7 @@ Real credentials belong only in `Assets/StreamingAssets/EarthVR/google-maps.loca
 
 Before sharing a build, remember that credentials packaged in a Unity player can be extracted. Use separate, least-privilege application credentials, restrict the Google key to Map Tiles API, restrict the Cesium token to `assets:read` for asset `2275207`, and apply quotas and monitoring.
 
-## Windows build
+## Developer: Windows build
 
 After the setup wizard succeeds:
 
@@ -51,7 +78,7 @@ After the setup wizard succeeds:
 
 Development builds may copy local configuration under StreamingAssets. Public release builds require users to enter their own token. The Steam Frame release build command excludes developer credentials and restores the local files afterward.
 
-## Steam Frame build
+## Developer: Steam Frame build
 
 The project can build a native standalone Android/ARM64 APK for Steam Frame through Valve's Lepton runtime. After installing Unity's Android modules, let Package Manager import Valve OpenXR Utilities, then use:
 
@@ -60,6 +87,9 @@ The project can build a native standalone Android/ARM64 APK for Steam Frame thro
 3. `powershell -ExecutionPolicy Bypass -File .\scripts\install-steam-frame.ps1`
 
 The APK is written to `Builds/SteamFrame/FrameEarthVR.apk`. See the [complete Steam Frame build and installation guide](docs/STEAM_FRAME_MIGRATION.md) for Wi-Fi, USB, validation, profiling, and troubleshooting.
+
+These scripts are developer tools for Lepton Development. Players should use
+the no-terminal installation guide at the top of this README for a Steam library entry.
 
 For a one-click development build and Wi-Fi install, close the Unity Editor, launch
 `Build-and-Install-Steam-Frame.cmd`, and keep Lepton Development running on the headset.

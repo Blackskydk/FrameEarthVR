@@ -12,6 +12,7 @@ Recordings/
 [Aa]ssets/_Recovery.meta
 
 # IDEs
+__pycache__/
 .vs/
 .vscode/
 .idea/

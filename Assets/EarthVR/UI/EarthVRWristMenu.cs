@@ -99,7 +99,27 @@ namespace EarthVR.UI
         private bool _rightTriggerWasHeld;
         private WorldSpaceButton _pointedButton;
         private CredentialSetupPanel _credentialSetup;
+        private ReleaseUpdateChecker _updates;
+        private WorldSpaceButton _updateButton;
+        private Text _updateButtonLabel;
+        private Text _updateBadge;
         public void SetCredentialSetup(CredentialSetupPanel setup) => _credentialSetup = setup;
+        public void SetUpdateChecker(ReleaseUpdateChecker updates)
+        {
+            _updates = updates;
+            _updates.Changed += RefreshUpdateStatus;
+            RefreshUpdateStatus();
+        }
+
+        private void RefreshUpdateStatus()
+        {
+            if (_updates == null || _updateButtonLabel == null) return;
+            _updateButtonLabel.text = _updates.IsUpdating ? "UPDATE IN PROGRESS…" : _updates.IsChecking ? "CHECKING FOR UPDATES…" : _updates.AvailableRelease != null
+                ? "DOWNLOAD & APPLY UPDATE" : "CHECK FOR UPDATES";
+            _updateButton.SetNormalColor(_updates.AvailableRelease != null ? GroundedColor : ButtonColor);
+            _updateBadge.text = _updates.Status;
+            _updateBadge.color = _updates.AvailableRelease != null ? new Color(1f, 0.85f, 0.12f) : MutedTextColor;
+        }
 
         public void Initialize(
             IEarthVRInput input,
@@ -180,8 +200,11 @@ namespace EarthVR.UI
             CreateGlobeControlRing(canvasObject.transform);
             CreateButton(_mainPanel.transform, "YOUR CESIUM ACCOUNT", new Vector2(0f, -126f),
                 () => { SetOpen(false); _credentialSetup?.Open(); }, buttonSize);
+            _updateButton = CreateStateButton(_mainPanel.transform, "CHECK FOR UPDATES", new Vector2(0f, -180f),
+                () => _updates?.OpenAvailableRelease(), buttonSize, out _updateButtonLabel);
+            _updateBadge = CreateText(_mainPanel.transform, new Vector2(0f, -213f), new Vector2(600f, 20f), 14, TextAnchor.MiddleCenter);
 
-            CreateCard(_mainPanel.transform, "Diagnostics Card", new Vector2(0f, -330f), new Vector2(600f, 220f), new Color(0.028f, 0.06f, 0.092f, 0.96f));
+            CreateCard(_mainPanel.transform, "Diagnostics Card", new Vector2(0f, -335f), new Vector2(600f, 210f), new Color(0.028f, 0.06f, 0.092f, 0.96f));
             _diagnostics = CreateText(_mainPanel.transform, new Vector2(0f, -330f), new Vector2(550f, 188f), 16, TextAnchor.UpperLeft);
             _diagnostics.color = MutedTextColor;
             var hint = CreateText(_mainPanel.transform, new Vector2(0f, -462f), new Vector2(600f, 24f), 14, TextAnchor.MiddleCenter);
@@ -892,6 +915,7 @@ namespace EarthVR.UI
 
         private void OnDestroy()
         {
+            if (_updates != null) _updates.Changed -= RefreshUpdateStatus;
             _searchCancellation?.Cancel();
             _searchCancellation?.Dispose();
             if (_places != null)

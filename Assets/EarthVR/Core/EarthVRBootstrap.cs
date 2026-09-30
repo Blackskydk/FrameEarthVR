@@ -142,6 +142,7 @@ namespace EarthVR.Core
             var credentialSetup = gameObject.AddComponent<CredentialSetupPanel>();
             credentialSetup.Initialize(rig, input, earth, navigation, scaling);
             menu.SetCredentialSetup(credentialSetup);
+            menu.SetUpdateChecker(gameObject.AddComponent<ReleaseUpdateChecker>());
         }
 
         private static void SelectStartingPlace(EarthVRSettings settings)

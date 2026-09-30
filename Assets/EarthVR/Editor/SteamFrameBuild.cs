@@ -46,6 +46,11 @@ namespace EarthVR.Editor
         [MenuItem("EarthVR/Steam Frame/Build Release APK", priority = 22)]
         public static void BuildReleaseApk()
         {
+            WithPrivateCredentialsExcluded(() => BuildApk(false));
+        }
+
+        public static void WithPrivateCredentialsExcluded(Action build)
+        {
             // Keep the developer's files intact, but never copy them into a
             // distributable APK. Restore them even if Unity reports a failure.
             var backup = Path.Combine("Library", "EarthVRPrivateBuildBackup");
@@ -64,7 +69,7 @@ namespace EarthVR.Editor
                         moved.Add(path);
                     }
                 AssetDatabase.Refresh();
-                BuildApk(false);
+                build();
             }
             finally
             {
@@ -84,6 +89,8 @@ namespace EarthVR.Editor
             }
 
             ConfigureAndroid();
+            PlayerSettings.bundleVersion = EarthVR.Core.ReleaseBuildStamp.Version;
+            PlayerSettings.Android.bundleVersionCode = EarthVR.Core.ReleaseBuildStamp.AndroidVersionCode;
             if (!HasSteamFrameControllerProfile())
             {
                 throw new InvalidOperationException(

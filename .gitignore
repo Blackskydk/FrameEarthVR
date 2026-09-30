@@ -38,3 +38,22 @@ Assets/StreamingAssets/EarthVR/cesium-ion.local.json.meta
 # Local builds and crash reports
 sysinfo.txt
 crashlytics-build.properties
+
+# Third-party plugin, reinstallable from the Asset Store or GitHub (see
+# docs/KNOWN_LIMITATIONS.md) — kept out of history rather than committing
+# ~100 MB of vendored assets.
+Assets/SteamVR/
+Assets/SteamVR.meta
+
+# SteamVR's own generated companions to the plugin above. Unused by this
+# project (no SteamVR Input/behaviour system is added to any scene) and
+# regenerated automatically whenever the plugin is present — see
+# docs/KNOWN_LIMITATIONS.md. Note Assets/SteamVR_Resources/ (singular
+# settings, holding autoEnableVR: 0) is NOT excluded here — that one is a real,
+# load-bearing project setting, not disposable scaffolding.
+Assets/StreamingAssets/SteamVR/
+Assets/StreamingAssets/SteamVR.meta
+Assets/XR/Loaders/OpenVRLoader.asset
+Assets/XR/Loaders/OpenVRLoader.asset.meta
+Assets/XR/Settings/OpenVRSettings.asset
+Assets/XR/Settings/OpenVRSettings.asset.meta

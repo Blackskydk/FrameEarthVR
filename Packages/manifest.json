@@ -18,6 +18,7 @@
     "com.unity.xr.management": "4.5.3",
     "com.unity.xr.openxr": "1.16.1",
     "com.valvesoftware.openxr.utils": "https://github.com/ValveSoftware/Unity.git?path=com.valvesoftware.openxr.utils",
+    "com.valvesoftware.unity.openvr": "file:../Assets/SteamVR/OpenVRUnityXRPackage/Editor/com.valvesoftware.unity.openvr-1.2.1.tgz",
     "com.unity.modules.jsonserialize": "1.0.0",
     "com.unity.modules.physics": "1.0.0",
     "com.unity.modules.ui": "1.0.0",

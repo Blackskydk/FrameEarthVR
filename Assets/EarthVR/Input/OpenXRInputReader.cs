@@ -17,6 +17,7 @@ namespace EarthVR.Input
         private InputAction _leftGrip;
         private InputAction _rightGrip;
         private InputAction _boost;
+        private InputAction _toggleGlobeOverview;
         private InputAction _openMenu;
         private InputAction _resetView;
         private InputAction _toggleMode;
@@ -28,6 +29,7 @@ namespace EarthVR.Input
         public bool LeftGripHeld => _leftGrip?.IsPressed() ?? false;
         public bool RightGripHeld => _rightGrip?.IsPressed() ?? false;
         public bool BoostHeld => _boost?.IsPressed() ?? false;
+        public bool ToggleGlobeOverviewPressed => _toggleGlobeOverview?.WasPressedThisFrame() ?? false;
         public bool OpenMenuPressed => _openMenu?.WasPressedThisFrame() ?? false;
         public bool ResetViewPressed => _resetView?.WasPressedThisFrame() ?? false;
         public bool ToggleMovementModePressed => _toggleMode?.WasPressedThisFrame() ?? false;
@@ -56,6 +58,7 @@ namespace EarthVR.Input
             _leftGrip = Find("LeftGrab");
             _rightGrip = Find("RightGrab");
             _boost = Find("Boost");
+            _toggleGlobeOverview = Find("ToggleGlobeOverview");
             _openMenu = Find("OpenMenu");
             _resetView = Find("ResetView");
             _toggleMode = Find("ToggleMovementMode");

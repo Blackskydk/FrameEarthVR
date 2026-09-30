@@ -211,6 +211,16 @@
       },
       "hash": "329c81f5a97a7f9e7740cf4307f1bfa9ce090b3a"
     },
+    "com.valvesoftware.unity.openvr": {
+      "version": "file:../Assets/SteamVR/OpenVRUnityXRPackage/Editor/com.valvesoftware.unity.openvr-1.2.1.tgz",
+      "depth": 0,
+      "source": "local-tarball",
+      "dependencies": {
+        "com.unity.xr.management": "3.2.13",
+        "com.unity.ugui": "1.0.0",
+        "com.unity.xr.legacyinputhelpers": "2.1.4"
+      }
+    },
     "com.unity.modules.androidjni": {
       "version": "1.0.0",
       "depth": 1,

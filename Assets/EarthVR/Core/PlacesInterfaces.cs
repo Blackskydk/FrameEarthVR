@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using EarthVR.Navigation;
 
 namespace EarthVR.Core
 {
@@ -27,8 +29,30 @@ namespace EarthVR.Core
 
     public interface IBookmarkProvider
     {
-        IReadOnlyList<GeographicPlace> Load();
-        void Save(GeographicPlace place);
-        void Remove(GeographicPlace place);
+        IReadOnlyList<SavedPlace> Bookmarks { get; }
+        IReadOnlyList<SavedPlace> RecentPlaces { get; }
+        event Action Changed;
+        void SaveBookmark(SavedPlace place);
+        void RemoveBookmark(string id);
+        void RecordRecent(SavedPlace place);
+    }
+
+    /// <summary>A complete, persistent VR viewpoint rather than only a map pin.</summary>
+    [Serializable]
+    public sealed class SavedPlace
+    {
+        public string id;
+        public string name;
+        public double longitude;
+        public double latitude;
+        public double heightMeters;
+        public float headingDegrees;
+        public float userScale = 1f;
+        public MovementMode movementMode = MovementMode.Flight;
+        public long utcTimeTicks;
+        public long createdUtcTicks;
+        public long lastVisitedUtcTicks;
+
+        public SavedPlace Copy() => (SavedPlace)MemberwiseClone();
     }
 }

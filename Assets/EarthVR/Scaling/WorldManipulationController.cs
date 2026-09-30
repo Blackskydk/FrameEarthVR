@@ -27,16 +27,16 @@ namespace EarthVR.Scaling
         private Transform _right;
 
         // Only the right hand grabs the world. The grabbed ECEF point never
-        // changes for as long as the trigger stays held. Hand motion since the
-        // grab began is scaled by a fixed gain (set once, from how far away the
-        // grabbed point was) rather than re-projected along a ray each frame,
-        // so the feel stays simple and predictable: close things move almost
-        // 1:1 with the hand, distant things move proportionally more.
+        // changes for as long as the trigger stays held, and its original ray
+        // depth is retained. Every pose update solves Navigation Space so that
+        // exact geographic point is the pointer endpoint—there is no gain,
+        // spring, dead travel, or replacement surface sample.
         private bool _hasGrabAnchor;
         private double3 _grabAnchorEcef;
-        private Vector3 _grabStartControllerLocal;
-        private Vector3 _grabStartOffsetLocal;
-        private float _grabGain;
+        private float _grabRayDistance;
+        private float _groundedGrabFloorY;
+        private bool _rightTriggerWasHeld;
+        private bool _rightTriggerOwnedByUi;
 
         private Transform _rotationHand;
         private Quaternion _previousHandLocalRotation;
@@ -45,6 +45,8 @@ namespace EarthVR.Scaling
 
         public float UserScale { get; private set; } = 1f;
         public bool IsDraggingEarth => _hasGrabAnchor;
+        public bool InteractionsEnabled { get; set; } = true;
+        public bool GroundedScalingEnabled { get; set; } = true;
         public event System.Action<float> ScaleChanged;
 
         public void Initialize(
@@ -66,21 +68,54 @@ namespace EarthVR.Scaling
             SetUserScale(1f, CameraPivotEcef());
         }
 
+        private void OnEnable()
+        {
+            // OpenXR performs a second pose update immediately before rendering.
+            // Reapply the hard grab constraint after that update so the rendered
+            // pointer can never get one pose ahead of the dragged terrain.
+            Application.onBeforeRender += ApplyGrabConstraintBeforeRender;
+        }
+
+        private void OnDisable()
+        {
+            Application.onBeforeRender -= ApplyGrabConstraintBeforeRender;
+        }
+
         private void Update()
         {
             if (_input == null)
                 return;
-            if (_input.BoostHeld)
+            if (!InteractionsEnabled)
             {
-                // Shoulder boost is reserved for Flight mode. Never allow an
-                // overlapping runtime binding to begin or continue world dragging,
-                // rotation, or grounded scale manipulation.
                 _hasGrabAnchor = false;
                 _rotationHand = null;
+                _momentumVelocity = Vector3.zero;
+                _rightTriggerWasHeld = _input.RightTriggerHeld;
+                _rightTriggerOwnedByUi = false;
+                return;
+            }
+            if (_input.BoostHeld)
+            {
+                // Boost is an exclusive locomotion modifier in both movement
+                // modes. Never let overlapping runtime bindings turn the same
+                // hold into a grab, rotation, or grounded scale gesture.
+                _hasGrabAnchor = false;
+                _rotationHand = null;
+                _momentumVelocity = Vector3.zero;
+                _rightTriggerWasHeld = _input.RightTriggerHeld;
+                // If trigger overlaps the boost hold, require a release before
+                // terrain grabbing can begin after boost ends.
+                _rightTriggerOwnedByUi = _input.RightTriggerHeld;
                 return;
             }
 
-            var dragging = _input.RightTriggerHeld && !IsHandBlocked(_right);
+            var rightTriggerHeld = _input.RightTriggerHeld;
+            if (rightTriggerHeld && !_rightTriggerWasHeld && IsHandBlocked(_right))
+                _rightTriggerOwnedByUi = true;
+            if (!rightTriggerHeld)
+                _rightTriggerOwnedByUi = false;
+            _rightTriggerWasHeld = rightTriggerHeld;
+            var dragging = rightTriggerHeld && !_rightTriggerOwnedByUi && !IsHandBlocked(_right);
             if (dragging)
             {
                 _momentumVelocity = Vector3.zero;
@@ -123,22 +158,7 @@ namespace EarthVR.Scaling
                 return;
             }
 
-            // Recomputed fresh from the grab-start reference every frame (not
-            // incrementally), so there is no drift: how far the hand has moved
-            // since the grab began, times the fixed gain set at grab time.
-            var previousPosition = _rig.NavigationSpace.position;
-            var controllerLocal = _rig.NavigationSpace.InverseTransformPoint(_right.position);
-            var handDelta = controllerLocal - _grabStartControllerLocal;
-            var desiredLocal = _grabStartControllerLocal + _grabStartOffsetLocal + handDelta * _grabGain;
-            var anchorWorld = EcefToWorld(_grabAnchorEcef);
-            var targetPosition = anchorWorld - _rig.NavigationSpace.rotation * desiredLocal;
-
-            // Treat this as pulling the Earth beneath the user, not pulling the
-            // user up the controller ray. The selected ECEF feature remains the
-            // horizontal anchor while player height is left untouched.
-            targetPosition.y = _rig.NavigationSpace.position.y;
-            _rig.NavigationSpace.position = targetPosition;
-            TrackMomentum(previousPosition);
+            ApplyGrabConstraint(true);
         }
 
         private void TryBeginGrab()
@@ -157,25 +177,57 @@ namespace EarthVR.Scaling
                     Physics.DefaultRaycastLayers,
                     QueryTriggerInteraction.Ignore) ||
                 hit.collider.GetComponent<WorldSpaceButton>() != null ||
-                hit.collider.GetComponent<CelestialDragHandle>() != null)
+                hit.collider.GetComponent<CelestialDragHandle>() != null ||
+                hit.collider.GetComponent<MiniatureGlobeSurface>() != null)
                 return;
 
             _grabAnchorEcef = WorldToEcef(hit.point);
-            var controllerLocal = _rig.NavigationSpace.InverseTransformPoint(_right.position);
-            var hitLocal = _rig.NavigationSpace.InverseTransformPoint(hit.point);
-            _grabStartControllerLocal = controllerLocal;
-            _grabStartOffsetLocal = hitLocal - controllerLocal;
-
-            // Gain of 1 out to arm's length, then scales up with distance so a
-            // far-away point can still be dragged a long way without needing to
-            // scale up first — clamped so it never runs away to something
-            // unmanageable.
-            var grabDistance = Vector3.Distance(controllerLocal, hitLocal);
-            _grabGain = Mathf.Clamp(
-                grabDistance / Mathf.Max(0.05f, _settings.grabGainReferenceDistanceMeters),
-                1f,
-                Mathf.Max(1f, _settings.maximumGrabGain));
+            _grabRayDistance = Mathf.Max(0.01f, hit.distance);
+            _groundedGrabFloorY = _rig.TrackingOrigin.position.y;
             _hasGrabAnchor = true;
+        }
+
+        private void ApplyGrabConstraintBeforeRender()
+        {
+            if (!_hasGrabAnchor || !InteractionsEnabled || _input == null ||
+                !_input.RightTriggerHeld || _right == null || _rig == null)
+                return;
+
+            ApplyGrabConstraint(false);
+        }
+
+        private void ApplyGrabConstraint(bool trackMomentum)
+        {
+            var previousPosition = _rig.NavigationSpace.position;
+            var controllerLocalPosition = _rig.NavigationSpace.InverseTransformPoint(_right.position);
+            var controllerLocalForward = _rig.NavigationSpace
+                .InverseTransformDirection(_right.forward)
+                .normalized;
+            var anchorWorld = EcefToWorld(_grabAnchorEcef);
+            if (_navigation.State.Mode == MovementMode.Grounded)
+            {
+                _rig.NavigationSpace.position = WorldGrabConstraintMath.CalculateGroundedNavigationPosition(
+                    anchorWorld,
+                    _rig.NavigationSpace.rotation,
+                    controllerLocalPosition,
+                    controllerLocalForward,
+                    _rig.TrackingOrigin.localPosition,
+                    _groundedGrabFloorY,
+                    _grabRayDistance,
+                    out _grabRayDistance);
+            }
+            else
+            {
+                _rig.NavigationSpace.position = WorldGrabConstraintMath.CalculateNavigationPosition(
+                    anchorWorld,
+                    _rig.NavigationSpace.rotation,
+                    controllerLocalPosition,
+                    controllerLocalForward,
+                    _grabRayDistance);
+            }
+            Physics.SyncTransforms();
+            if (trackMomentum)
+                TrackMomentum(previousPosition);
         }
 
         private void TrackMomentum(Vector3 previousPosition)
@@ -239,19 +291,24 @@ namespace EarthVR.Scaling
 
         private void UpdateGroundedScale()
         {
-            if (_navigation.State.Mode != MovementMode.Grounded)
+            if (_navigation.State.Mode != MovementMode.Grounded || !GroundedScalingEnabled)
                 return;
 
             var stick = _input.Fly;
             var intendedDirection = _right.forward * stick.y + _right.right * stick.x;
             var verticalIntent = Mathf.Clamp(intendedDirection.y, -1f, 1f);
-            if (Mathf.Abs(verticalIntent) < 0.1f)
+            // Ordinary walking aim often tilts down toward the ground. Reserve
+            // scale changes for a deliberate near-vertical gesture so walking
+            // does not continuously resize Earth underneath the tracking floor.
+            var scaleIntent = Mathf.Sign(verticalIntent) *
+                Mathf.InverseLerp(0.9f, 0.99f, Mathf.Abs(verticalIntent));
+            if (Mathf.Abs(scaleIntent) < 0.001f)
                 return;
 
             var scaleRate = _settings.groundedScaleDoublingsPerSecond;
             var multiplier = Mathf.Pow(
                 2f,
-                verticalIntent * scaleRate * Time.deltaTime);
+                scaleIntent * scaleRate * Time.deltaTime);
             SetUserScale(UserScale * multiplier);
         }
 
@@ -264,7 +321,8 @@ namespace EarthVR.Scaling
                 Physics.DefaultRaycastLayers,
                 QueryTriggerInteraction.Ignore) &&
             (hit.collider.GetComponent<WorldSpaceButton>() != null ||
-             hit.collider.GetComponent<CelestialDragHandle>() != null);
+             hit.collider.GetComponent<CelestialDragHandle>() != null ||
+             hit.collider.GetComponent<MiniatureGlobeSurface>() != null);
 
         public void SetUserScale(float requestedScale) => SetUserScale(requestedScale, CameraPivotEcef());
 
@@ -283,6 +341,29 @@ namespace EarthVR.Scaling
             ScaleChanged?.Invoke(UserScale);
         }
 
+        /// <summary>Changes scale without moving the observer at all — no pivot,
+        /// no compensating shift of Navigation Space. <see cref="SetUserScale"/>
+        /// keeps a chosen point's *geographic* identity fixed as scale changes,
+        /// which is right for scaling while standing somewhere, but altitude is
+        /// itself scale-relative, so that alone does not hold the camera's raw
+        /// position still. This does, exactly and unconditionally — for the
+        /// Flight/Grounded perspective-shift transition, where the whole point
+        /// is that the eyes must not move at all and only the world's apparent
+        /// size changes around them.</summary>
+        public void SetUserScaleKeepingObserverFixed(float requestedScale)
+        {
+            var clamped = ScaleMath.Clamp(requestedScale, _settings.minimumUserScale, _settings.maximumUserScale);
+            _georeference.scale = ScaleMath.CesiumGlobeScale(clamped);
+            UserScale = clamped;
+            _navigation.UserScale = clamped;
+            ScaleChanged?.Invoke(UserScale);
+        }
+
+        public void ApplyOriginRebaseRotation(Quaternion worldRotationDelta)
+        {
+            _momentumVelocity = worldRotationDelta * _momentumVelocity;
+        }
+
         private double3 CameraPivotEcef()
         {
             return WorldToEcef(_rig.TrackingOrigin.position);
@@ -299,6 +380,73 @@ namespace EarthVR.Scaling
         {
             var local = _georeference.TransformEarthCenteredEarthFixedPositionToUnity(ecef);
             return _georeference.transform.TransformPoint(new Vector3((float)local.x, (float)local.y, (float)local.z));
+        }
+    }
+
+    public static class WorldGrabConstraintMath
+    {
+        /// <summary>Solves the root translation that makes an unmodified child
+        /// ray end at the selected world point. Because this is an absolute solve
+        /// from the current tracked pose, it has neither accumulated drift nor
+        /// an elastic hand-to-world offset.</summary>
+        public static Vector3 CalculateNavigationPosition(
+            Vector3 anchorWorld,
+            Quaternion navigationRotation,
+            Vector3 controllerLocalPosition,
+            Vector3 controllerLocalForward,
+            float rayDistance)
+        {
+            var direction = controllerLocalForward.sqrMagnitude > 0.000001f
+                ? controllerLocalForward.normalized
+                : Vector3.forward;
+            var pointerEndpointLocal = controllerLocalPosition +
+                                       direction * Mathf.Max(0f, rayDistance);
+            return anchorWorld - navigationRotation * pointerEndpointLocal;
+        }
+
+        /// <summary>Keeps the selected point exactly on the live controller ray
+        /// while constraining the tracking floor to one world-space height. The
+        /// extra degree of freedom is ray depth: dragging underneath the body
+        /// changes how far along the ray the anchor lies instead of lifting the
+        /// entire player away from the ground.</summary>
+        public static Vector3 CalculateGroundedNavigationPosition(
+            Vector3 anchorWorld,
+            Quaternion navigationRotation,
+            Vector3 controllerLocalPosition,
+            Vector3 controllerLocalForward,
+            Vector3 trackingFloorLocalPosition,
+            float trackingFloorWorldY,
+            float fallbackRayDistance,
+            out float solvedRayDistance)
+        {
+            var directionLocal = controllerLocalForward.sqrMagnitude > 0.000001f
+                ? controllerLocalForward.normalized
+                : Vector3.forward;
+            var directionWorld = navigationRotation * directionLocal;
+            var controllerOffsetWorld = navigationRotation * controllerLocalPosition;
+            var floorOffsetWorld = navigationRotation * trackingFloorLocalPosition;
+            var navigationY = trackingFloorWorldY - floorOffsetWorld.y;
+
+            if (Mathf.Abs(directionWorld.y) > 0.0001f)
+            {
+                solvedRayDistance =
+                    (anchorWorld.y - navigationY - controllerOffsetWorld.y) /
+                    directionWorld.y;
+                if (solvedRayDistance < 0.01f ||
+                    float.IsNaN(solvedRayDistance) ||
+                    float.IsInfinity(solvedRayDistance))
+                    solvedRayDistance = Mathf.Max(0.01f, fallbackRayDistance);
+            }
+            else
+            {
+                solvedRayDistance = Mathf.Max(0.01f, fallbackRayDistance);
+            }
+
+            var navigationPosition = anchorWorld -
+                                     controllerOffsetWorld -
+                                     directionWorld * solvedRayDistance;
+            navigationPosition.y = navigationY;
+            return navigationPosition;
         }
     }
 }

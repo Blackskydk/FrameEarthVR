@@ -14,45 +14,82 @@ using UnityEngine.UI;
 namespace EarthVR.UI
 {
     /// <summary>
-    /// A floating panel summoned in front of the viewer (not attached to a
-    /// hand). Opening it re-anchors it a comfortable distance in front of
-    /// wherever the head is currently looking; it then stays put in the world
-    /// until closed and reopened, rather than chasing the head every frame.
+    /// The left-hand menu. The left View/pause button shows or hides it together
+    /// with the destination globe. The panel rides beside the globe, turns to
+    /// face the viewer, and closes itself whenever travel begins.
     /// </summary>
     public sealed class EarthVRWristMenu : MonoBehaviour
     {
         private const float UiRefreshIntervalSeconds = 0.25f;
-        private const float SummonDistanceMeters = 0.85f;
-        private const float SummonDownOffsetMeters = 0.08f;
+        // Roughly the angular size the old floating panel had at 0.85 m, for a
+        // hand held about 0.45 m from the eyes.
+        private const float HandMenuScale = 0.0004f;
+        private const float MenuPanelOffsetPixels = 1050f;
         private static readonly Color BackgroundColor = new(0.02f, 0.035f, 0.062f, 0.97f);
         private static readonly Color CardColor = new(0.04f, 0.085f, 0.128f, 0.94f);
         private static readonly Color ButtonColor = new(0.05f, 0.18f, 0.25f, 0.98f);
         private static readonly Color AccentColor = new(0.28f, 0.86f, 1f, 1f);
         private static readonly Color MutedTextColor = new(0.66f, 0.77f, 0.86f, 1f);
+        private static readonly Color FlightColor = new(0.055f, 0.37f, 0.48f, 1f);
+        private static readonly Color GroundedColor = new(0.38f, 0.25f, 0.055f, 1f);
+        private static readonly Color EnabledColor = new(0.08f, 0.42f, 0.32f, 1f);
+        private static readonly Color DisabledColor = new(0.055f, 0.10f, 0.14f, 1f);
         private static Sprite _roundedSprite;
         private static Texture2D _roundedTexture;
+        private static Sprite _circleSprite;
+        private static Texture2D _circleTexture;
         private IEarthVRInput _input;
         private EarthVRSettings _settings;
         private EarthVRRig _rig;
         private NavigationController _navigation;
+        private GeographicOriginRebaser _originRebaser;
         private WorldManipulationController _scaling;
         private CesiumEarthProvider _earth;
         private IGeocodingProvider _geocoder;
+        private IBookmarkProvider _places;
+        private LoadingAwareArrivalController _arrival;
+        private MiniatureGlobePicker _globePicker;
+        private GlobeOverviewController _overview;
+        private CarModeController _carMode;
         private ComfortVignetteController _vignette;
         private ISystemKeyboardProvider _keyboardProvider;
-        private Text _vignetteButtonLabel;
         private Canvas _canvas;
+        private bool _isOpen;
+        private WorldSpaceButton _modeButton;
+        private Text _modeButtonLabel;
+        private WorldSpaceButton _vignetteButton;
+        private Text _vignetteButtonLabel;
+        private WorldSpaceButton _favoriteButton;
+        private WorldSpaceButton _menuButton;
+        private Text _menuButtonLabel;
+        private Text _favoriteButtonLabel;
+        private WorldSpaceButton _carModeButton;
+        private Text _carModeButtonLabel;
+        private MovementMode _displayedMode;
+        private bool _displayedVignette;
         private GameObject _mainPanel;
         private GameObject _searchPanel;
+        private GameObject _placesPanel;
         private GameObject _keyboardPanel;
         private GameObject _resultsPanel;
+        private GameObject _suggestionsPanel;
         private Text _status;
         private Text _modeBadge;
         private Text _diagnostics;
         private Text _searchQueryText;
         private Text _searchStatus;
         private readonly List<GameObject> _resultButtons = new();
+        private readonly List<GameObject> _suggestionButtons = new();
+        private readonly List<GameObject> _placeButtons = new();
+        private readonly List<GameObject> _removePlaceButtons = new();
+        private Text _placesModeButtonLabel;
+        private GameObject _placePageButton;
+        private Text _placePageButtonLabel;
+        private Text _placesStatus;
+        private bool _showingRecents;
+        private int _placePage;
         private IReadOnlyList<GeographicPlace> _searchResults;
+        private IReadOnlyList<OfflinePlaceCatalog.PlaceSuggestion> _searchSuggestions;
         private CancellationTokenSource _searchCancellation;
         private string _searchQuery = string.Empty;
         private Transform _selectionController;
@@ -61,15 +98,23 @@ namespace EarthVR.UI
         private bool _showPerformance;
         private bool _rightTriggerWasHeld;
         private WorldSpaceButton _pointedButton;
+        private CredentialSetupPanel _credentialSetup;
+        public void SetCredentialSetup(CredentialSetupPanel setup) => _credentialSetup = setup;
 
         public void Initialize(
             IEarthVRInput input,
             EarthVRSettings settings,
             EarthVRRig rig,
             NavigationController navigation,
+            GeographicOriginRebaser originRebaser,
             WorldManipulationController scaling,
             CesiumEarthProvider earth,
             IGeocodingProvider geocoder,
+            IBookmarkProvider places,
+            LoadingAwareArrivalController arrival,
+            MiniatureGlobePicker globePicker,
+            GlobeOverviewController overview,
+            CarModeController carMode,
             ComfortVignetteController vignette,
             ISystemKeyboardProvider keyboardProvider = null)
         {
@@ -77,27 +122,32 @@ namespace EarthVR.UI
             _settings = settings;
             _rig = rig;
             _navigation = navigation;
+            _originRebaser = originRebaser;
             _scaling = scaling;
             _earth = earth;
             _geocoder = geocoder;
+            _places = places;
+            _arrival = arrival;
+            _globePicker = globePicker;
+            _overview = overview;
+            _carMode = carMode;
             _vignette = vignette;
             _keyboardProvider = keyboardProvider ?? new NullSystemKeyboardProvider();
             _selectionController = rig.RightController;
 
-            // Parented to Navigation Space (not a hand): it travels with the
-            // player's overall navigation, but does not chase real head/hand
-            // motion, and does not move at all just from physically stepping
-            // around a room-scale play area.
-            var canvasObject = new GameObject("EarthVR Floating Menu", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            canvasObject.transform.SetParent(rig.NavigationSpace, false);
-            canvasObject.transform.localScale = Vector3.one * 0.00085f;
+            var canvasObject = new GameObject("EarthVR Globe-anchored Menu", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            canvasObject.transform.SetParent(globePicker.InterfaceAnchor ?? rig.LeftController, false);
+            canvasObject.transform.localPosition = Vector3.zero;
+            canvasObject.transform.localRotation = Quaternion.identity;
+            canvasObject.transform.localScale = Vector3.one * HandMenuScale;
             _canvas = canvasObject.GetComponent<Canvas>();
             _canvas.renderMode = RenderMode.WorldSpace;
             _canvas.worldCamera = rig.Camera;
             var rect = canvasObject.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(640f, 960f);
+            rect.sizeDelta = new Vector2(2200f, 960f);
 
             _mainPanel = CreatePanel(canvasObject.transform, BackgroundColor);
+            ConfigureMenuPanel(_mainPanel);
             var header = CreateCard(_mainPanel.transform, "Header", new Vector2(0f, 400f), new Vector2(600f, 110f), new Color(0.028f, 0.11f, 0.165f, 0.98f));
             CreateCard(header.transform, "Accent", new Vector2(-286f, 0f), new Vector2(8f, 82f), AccentColor);
             var title = CreateText(header.transform, new Vector2(-96f, 16f), new Vector2(360f, 48f), 34, TextAnchor.MiddleLeft);
@@ -114,14 +164,22 @@ namespace EarthVR.UI
             _status = CreateText(_mainPanel.transform, new Vector2(0f, 245f), new Vector2(550f, 122f), 19, TextAnchor.MiddleLeft);
             _status.color = new Color(0.92f, 0.96f, 1f, 1f);
 
-            var buttonSize = new Vector2(580f, 60f);
-            CreateButton(_mainPanel.transform, "RECENTER VIEW", new Vector2(0f, 126f), () => _navigation.ResetUpright(), buttonSize);
-            CreateButton(_mainPanel.transform, "FLIGHT / GROUNDED MODE", new Vector2(0f, 54f), () => _navigation.State.Toggle(), buttonSize);
-            var vignetteButton = CreateButton(_mainPanel.transform, "COMFORT VIGNETTE: OFF", new Vector2(0f, -18f), ToggleComfortVignette, buttonSize);
-            _vignetteButtonLabel = vignetteButton.GetComponentInChildren<Text>();
-            CreateButton(_mainPanel.transform, "PERFORMANCE OVERLAY", new Vector2(0f, -90f), () => _showPerformance = !_showPerformance, buttonSize);
-            CreateButton(_mainPanel.transform, "SEARCH FOR A LOCATION", new Vector2(0f, -162f), ShowSearch, buttonSize);
-            UpdateVignetteButtonLabel();
+            var buttonSize = new Vector2(580f, 46f);
+            CreateButton(_mainPanel.transform, "RECENTER VIEW", new Vector2(0f, 144f), () => _navigation.ResetUpright(), buttonSize);
+            CreateButton(_mainPanel.transform, "PERFORMANCE OVERLAY", new Vector2(0f, 90f), () => _showPerformance = !_showPerformance, buttonSize);
+            CreateButton(_mainPanel.transform, "SEARCH FOR A LOCATION", new Vector2(0f, 36f), ShowSearch, buttonSize);
+            CreateButton(_mainPanel.transform, "FAVORITES & RECENT PLACES", new Vector2(0f, -18f), ShowPlaces, buttonSize);
+            _carModeButton = CreateStateButton(
+                _mainPanel.transform,
+                "CAR MODE",
+                new Vector2(0f, -72f),
+                () => _carMode?.Toggle(),
+                buttonSize,
+                out _carModeButtonLabel);
+
+            CreateGlobeControlRing(canvasObject.transform);
+            CreateButton(_mainPanel.transform, "YOUR CESIUM ACCOUNT", new Vector2(0f, -126f),
+                () => { SetOpen(false); _credentialSetup?.Open(); }, buttonSize);
 
             CreateCard(_mainPanel.transform, "Diagnostics Card", new Vector2(0f, -330f), new Vector2(600f, 220f), new Color(0.028f, 0.06f, 0.092f, 0.96f));
             _diagnostics = CreateText(_mainPanel.transform, new Vector2(0f, -330f), new Vector2(550f, 188f), 16, TextAnchor.UpperLeft);
@@ -131,12 +189,215 @@ namespace EarthVR.UI
             hint.color = new Color(0.44f, 0.6f, 0.7f, 1f);
 
             CreateSearchPanel(canvasObject.transform);
+            CreatePlacesPanel(canvasObject.transform);
+            _places.Changed += RefreshPlaces;
+            SetOpen(false);
             _canvas.gameObject.SetActive(false);
+        }
+
+        /// <summary>Opens or closes the menu and the destination globe together.
+        /// The menu always reopens on its main page.</summary>
+        private void SetOpen(bool open)
+        {
+            _isOpen = open;
+            _globePicker?.SetSummoned(open);
+            _menuButton?.SetNormalColor(open ? EnabledColor : DisabledColor);
+            if (_menuButtonLabel != null)
+                _menuButtonLabel.text = open ? "CLOSE\nMENU" : "OPEN\nMENU";
+            if (open)
+            {
+                ShowMain();
+                RefreshStateButtons(true);
+                PlaceBesideGlobe();
+                _nextUiRefreshTime = 0f;
+                return;
+            }
+
+            _searchCancellation?.Cancel();
+            _keyboardProvider?.Hide();
+            _mainPanel.SetActive(false);
+            _searchPanel.SetActive(false);
+            _placesPanel.SetActive(false);
+            SetPointedButton(null);
+        }
+
+        private void ToggleMode()
+        {
+            // A Flight/Grounded perspective transition suspends navigation and
+            // owns scale until it settles; ignore presses until then.
+            if (_navigation.NavigationEnabled)
+                _navigation.State.Toggle();
+        }
+
+        private void ToggleVignette()
+        {
+            if (_vignette == null)
+                return;
+            _vignette.Enabled = !_vignette.Enabled;
+            RefreshStateButtons(true);
+        }
+
+        private void RefreshStateButtons(bool force)
+        {
+            var mode = _navigation.State.Mode;
+            if (force || mode != _displayedMode)
+            {
+                _displayedMode = mode;
+                if (_modeButtonLabel != null)
+                    _modeButtonLabel.text = mode switch
+                    {
+                        MovementMode.Flight => "FLIGHT",
+                        MovementMode.Car => "CAR",
+                        _ => "GROUNDED"
+                    };
+                _modeButton?.SetNormalColor(mode switch
+                {
+                    MovementMode.Flight => FlightColor,
+                    MovementMode.Car => EnabledColor,
+                    _ => GroundedColor
+                });
+                if (_carModeButtonLabel != null)
+                    _carModeButtonLabel.text = mode == MovementMode.Car
+                        ? "EXIT CAR MODE"
+                        : "ENTER CAR MODE";
+                _carModeButton?.SetNormalColor(mode == MovementMode.Car ? EnabledColor : DisabledColor);
+            }
+
+            var vignetteEnabled = _vignette != null && _vignette.Enabled;
+            if (force || vignetteEnabled != _displayedVignette)
+            {
+                _displayedVignette = vignetteEnabled;
+                if (_vignetteButtonLabel != null)
+                    _vignetteButtonLabel.text = vignetteEnabled ? "VIGNETTE\nON" : "VIGNETTE\nOFF";
+                _vignetteButton?.SetNormalColor(vignetteEnabled ? EnabledColor : DisabledColor);
+            }
+
+            RefreshFavoriteButton();
+        }
+
+        private void CreateGlobeControlRing(Transform parent)
+        {
+            var diameter = new Vector2(158f, 158f);
+            _modeButton = CreateRoundStateButton(
+                parent,
+                "Flight or grounded",
+                new Vector2(550f, 270f),
+                ToggleMode,
+                diameter,
+                out _modeButtonLabel);
+            _vignetteButton = CreateRoundStateButton(
+                parent,
+                "Comfort vignette",
+                new Vector2(550f, 90f),
+                ToggleVignette,
+                diameter,
+                out _vignetteButtonLabel);
+            _favoriteButton = CreateRoundStateButton(
+                parent,
+                "Favorite current place",
+                new Vector2(550f, -90f),
+                ToggleFavoriteCurrentView,
+                diameter,
+                out _favoriteButtonLabel);
+            _menuButton = CreateRoundStateButton(parent, "OPEN\nMENU",
+                new Vector2(550f, -270f), () => SetOpen(!_isOpen), diameter,
+                out _menuButtonLabel);
+        }
+
+        private void ToggleFavoriteCurrentView()
+        {
+            var current = _arrival.CaptureCurrentPlace();
+            var favorite = FindMatchingFavorite(current);
+            if (favorite != null)
+                _places.RemoveBookmark(favorite.id);
+            else
+                _places.SaveBookmark(current);
+            RefreshFavoriteButton();
+        }
+
+        private SavedPlace FindMatchingFavorite(SavedPlace place)
+            => FindMatchingFavorite(place.name, place.longitude, place.latitude);
+
+        private SavedPlace FindMatchingFavorite(string name, double longitude, double latitude)
+        {
+            if (_places == null)
+                return null;
+            for (var i = 0; i < _places.Bookmarks.Count; i++)
+            {
+                if (PlaceLibraryRules.IsSameDestination(
+                        _places.Bookmarks[i],
+                        name,
+                        longitude,
+                        latitude))
+                    return _places.Bookmarks[i];
+            }
+            return null;
+        }
+
+        private void RefreshFavoriteButton()
+        {
+            if (_favoriteButton == null || _arrival == null)
+                return;
+            var llh = _navigation.LongitudeLatitudeHeight;
+            var isFavorite = FindMatchingFavorite(
+                _navigation.CurrentPlaceName,
+                llh.x,
+                llh.y) != null;
+            _favoriteButtonLabel.text = isFavorite ? "★\nFAVORITE" : "☆\nFAVORITE";
+            _favoriteButton.SetNormalColor(isFavorite ? EnabledColor : DisabledColor);
+        }
+
+        private void CreatePlacesPanel(Transform parent)
+        {
+            _placesPanel = CreatePanel(parent, BackgroundColor);
+            ConfigureMenuPanel(_placesPanel);
+            var title = CreateText(_placesPanel.transform, new Vector2(0f, 402f), new Vector2(560f, 54f), 30, TextAnchor.MiddleCenter);
+            title.text = "FAVORITES";
+            title.fontStyle = FontStyle.Bold;
+            title.color = AccentColor;
+
+            CreateButton(_placesPanel.transform, "FAVORITE THIS VIEW", new Vector2(0f, 332f), BookmarkCurrentView, new Vector2(540f, 58f));
+            var modeButton = CreateButton(_placesPanel.transform, "SHOW RECENT PLACES", new Vector2(0f, 264f), TogglePlacesMode, new Vector2(540f, 52f));
+            _placesModeButtonLabel = modeButton.GetComponentInChildren<Text>();
+            _placesStatus = CreateText(_placesPanel.transform, new Vector2(0f, 214f), new Vector2(540f, 40f), 16, TextAnchor.MiddleCenter);
+            _placesStatus.color = MutedTextColor;
+
+            for (var i = 0; i < 5; i++)
+            {
+                var placeIndex = i;
+                var y = 148f - i * 78f;
+                var placeButton = CreateButton(
+                    _placesPanel.transform,
+                    "Place",
+                    new Vector2(-35f, y),
+                    () => TravelToPlace(placeIndex),
+                    new Vector2(470f, 64f));
+                placeButton.GetComponentInChildren<Text>().fontSize = 17;
+                _placeButtons.Add(placeButton);
+
+                var removeButton = CreateButton(
+                    _placesPanel.transform,
+                    "×",
+                    new Vector2(245f, y),
+                    () => RemoveBookmark(placeIndex),
+                    new Vector2(64f, 64f));
+                removeButton.GetComponentInChildren<Text>().fontSize = 28;
+                _removePlaceButtons.Add(removeButton);
+            }
+
+            _placePageButton = CreateButton(_placesPanel.transform, "NEXT PAGE", new Vector2(0f, -236f), CyclePlacePage, new Vector2(400f, 48f));
+            _placePageButtonLabel = _placePageButton.GetComponentInChildren<Text>();
+            CreateButton(_placesPanel.transform, "Back to controls", new Vector2(0f, -316f), ShowMain, new Vector2(480f, 54f));
+            var hint = CreateText(_placesPanel.transform, new Vector2(0f, -405f), new Vector2(570f, 80f), 15, TextAnchor.MiddleCenter);
+            hint.text = "The map globe sits above your left hand.\nPoint with the right hand + trigger twice to travel.";
+            hint.color = MutedTextColor;
+            _placesPanel.SetActive(false);
         }
 
         private void CreateSearchPanel(Transform parent)
         {
             _searchPanel = CreatePanel(parent, BackgroundColor);
+            ConfigureMenuPanel(_searchPanel);
             var searchTitle = CreateText(_searchPanel.transform, new Vector2(0f, 390f), new Vector2(560f, 50f), 30, TextAnchor.MiddleCenter);
             searchTitle.text = "GO TO LOCATION";
             searchTitle.fontStyle = FontStyle.Bold;
@@ -145,6 +406,21 @@ namespace EarthVR.UI
             _searchQueryText = CreateText(_searchPanel.transform, new Vector2(0f, 326f), new Vector2(530f, 46f), 24, TextAnchor.MiddleLeft);
             _searchStatus = CreateText(_searchPanel.transform, new Vector2(0f, 268f), new Vector2(550f, 56f), 17, TextAnchor.UpperLeft);
             _searchStatus.color = MutedTextColor;
+
+            _suggestionsPanel = new GameObject("Offline Suggestions", typeof(RectTransform));
+            _suggestionsPanel.transform.SetParent(_searchPanel.transform, false);
+            for (var i = 0; i < 3; i++)
+            {
+                var suggestionIndex = i;
+                var suggestionButton = CreateButton(
+                    _suggestionsPanel.transform,
+                    "Suggestion",
+                    new Vector2(-185f + i * 185f, 215f),
+                    () => GoToSearchSuggestion(suggestionIndex),
+                    new Vector2(174f, 42f));
+                suggestionButton.GetComponentInChildren<Text>().fontSize = 13;
+                _suggestionButtons.Add(suggestionButton);
+            }
 
             _keyboardPanel = new GameObject("Search Keyboard", typeof(RectTransform));
             _keyboardPanel.transform.SetParent(_searchPanel.transform, false);
@@ -197,12 +473,14 @@ namespace EarthVR.UI
         private void ShowSearch()
         {
             _mainPanel.SetActive(false);
+            _placesPanel.SetActive(false);
             _searchPanel.SetActive(true);
             if (_keyboardProvider != null && _keyboardProvider.IsAvailable)
             {
                 _keyboardPanel.SetActive(false);
                 _resultsPanel.SetActive(false);
                 _searchStatus.text = "Enter a city, landmark, or address.";
+                RefreshSearchSuggestions();
                 _keyboardProvider.Show(_searchQuery, OnSystemKeyboardTextChanged, OnSystemKeyboardDone);
             }
             else
@@ -216,7 +494,88 @@ namespace EarthVR.UI
             _searchCancellation?.Cancel();
             _keyboardProvider?.Hide();
             _searchPanel.SetActive(false);
+            _placesPanel.SetActive(false);
             _mainPanel.SetActive(true);
+        }
+
+        private void ShowPlaces()
+        {
+            _searchCancellation?.Cancel();
+            _keyboardProvider?.Hide();
+            _mainPanel.SetActive(false);
+            _searchPanel.SetActive(false);
+            _placesPanel.SetActive(true);
+            RefreshPlaces();
+        }
+
+        private void TogglePlacesMode()
+        {
+            _showingRecents = !_showingRecents;
+            _placePage = 0;
+            RefreshPlaces();
+        }
+
+        private void CyclePlacePage()
+        {
+            var collection = _showingRecents ? _places.RecentPlaces : _places.Bookmarks;
+            var pageCount = Mathf.Max(1, Mathf.CeilToInt(collection.Count / (float)_placeButtons.Count));
+            _placePage = (_placePage + 1) % pageCount;
+            RefreshPlaces();
+        }
+
+        private void BookmarkCurrentView()
+        {
+            var place = _arrival.CaptureCurrentPlace();
+            _places.SaveBookmark(place);
+            _placesStatus.text = $"Favorited {Shorten(place.name, 48)}";
+        }
+
+        private void TravelToPlace(int index)
+        {
+            var collection = _showingRecents ? _places.RecentPlaces : _places.Bookmarks;
+            index += _placePage * _placeButtons.Count;
+            if (index < 0 || index >= collection.Count)
+                return;
+            var destination = collection[index].Copy();
+            SetOpen(false);
+            _arrival.TravelTo(destination);
+        }
+
+        private void RemoveBookmark(int index)
+        {
+            index += _placePage * _placeButtons.Count;
+            if (_showingRecents || index < 0 || index >= _places.Bookmarks.Count)
+                return;
+            _places.RemoveBookmark(_places.Bookmarks[index].id);
+        }
+
+        private void RefreshPlaces()
+        {
+            RefreshFavoriteButton();
+            if (_placesPanel == null)
+                return;
+            var collection = _showingRecents ? _places.RecentPlaces : _places.Bookmarks;
+            var pageCount = Mathf.Max(1, Mathf.CeilToInt(collection.Count / (float)_placeButtons.Count));
+            _placePage = Mathf.Clamp(_placePage, 0, pageCount - 1);
+            var firstIndex = _placePage * _placeButtons.Count;
+            _placesModeButtonLabel.text = _showingRecents ? "SHOW FAVORITES" : "SHOW RECENT PLACES";
+            _placesStatus.text = collection.Count == 0
+                ? (_showingRecents ? "No recently visited places yet." : "No favorites yet.")
+                : (_showingRecents ? "Most recently visited first" : "Favorite viewpoints");
+            _placePageButton.SetActive(pageCount > 1);
+            _placePageButtonLabel.text = $"NEXT PAGE  ·  {_placePage + 1}/{pageCount}";
+            for (var i = 0; i < _placeButtons.Count; i++)
+            {
+                var collectionIndex = firstIndex + i;
+                var visible = collectionIndex < collection.Count;
+                _placeButtons[i].SetActive(visible);
+                _removePlaceButtons[i].SetActive(visible && !_showingRecents);
+                if (!visible)
+                    continue;
+                var place = collection[collectionIndex];
+                _placeButtons[i].GetComponentInChildren<Text>().text =
+                    $"{Shorten(place.name, 42)}\n{place.latitude:F3}°, {place.longitude:F3}°  ·  {place.userScale:N0}×";
+            }
         }
 
         private void ShowKeyboard()
@@ -224,6 +583,7 @@ namespace EarthVR.UI
             _keyboardPanel.SetActive(true);
             _resultsPanel.SetActive(false);
             _searchStatus.text = "Enter a city, landmark, or address, then press SEARCH.";
+            RefreshSearchSuggestions();
         }
 
         private void OnSystemKeyboardTextChanged(string text)
@@ -253,6 +613,32 @@ namespace EarthVR.UI
         {
             if (_searchQueryText != null)
                 _searchQueryText.text = string.IsNullOrWhiteSpace(_searchQuery) ? "Search: _" : "Search: " + _searchQuery + "_";
+            RefreshSearchSuggestions();
+        }
+
+        private void RefreshSearchSuggestions()
+        {
+            if (_suggestionsPanel == null)
+                return;
+            _searchSuggestions = OfflinePlaceCatalog.FindSuggestions(
+                _searchQuery,
+                _places?.Bookmarks,
+                _places?.RecentPlaces,
+                _suggestionButtons.Count);
+            var showPanel = _searchPanel != null && _searchPanel.activeInHierarchy &&
+                            (_resultsPanel == null || !_resultsPanel.activeSelf) &&
+                            _searchSuggestions.Count > 0;
+            _suggestionsPanel.SetActive(showPanel);
+            for (var i = 0; i < _suggestionButtons.Count; i++)
+            {
+                var visible = showPanel && i < _searchSuggestions.Count;
+                _suggestionButtons[i].SetActive(visible);
+                if (!visible)
+                    continue;
+                var suggestion = _searchSuggestions[i];
+                _suggestionButtons[i].GetComponentInChildren<Text>().text =
+                    $"{Shorten(suggestion.Place.Name, 24)}\n{suggestion.Category.ToUpperInvariant()}";
+            }
         }
 
         private async void RunSearch()
@@ -269,6 +655,7 @@ namespace EarthVR.UI
             var cancellation = new CancellationTokenSource();
             _searchCancellation = cancellation;
             _searchStatus.text = "Searching…";
+            _suggestionsPanel.SetActive(false);
 
             try
             {
@@ -279,7 +666,10 @@ namespace EarthVR.UI
 
                 if (_searchResults.Count == 0)
                 {
-                    _searchStatus.text = "No locations found. Try a broader name.";
+                    _searchStatus.text = _searchSuggestions != null && _searchSuggestions.Count > 0
+                        ? "No additional online locations found."
+                        : "No locations found. Try a broader name.";
+                    RefreshSearchSuggestions();
                     return;
                 }
 
@@ -310,26 +700,17 @@ namespace EarthVR.UI
                 return;
 
             var place = _searchResults[index];
-            _scaling.SetUserScale(1f);
-            _navigation.GoToLocation(place.Longitude, place.Latitude);
-            ShowMain();
+            SetOpen(false);
+            _arrival.TravelTo(_arrival.CreateSearchDestination(place));
         }
 
-        private void ToggleComfortVignette()
+        private void GoToSearchSuggestion(int index)
         {
-            if (_vignette == null)
+            if (_searchSuggestions == null || index < 0 || index >= _searchSuggestions.Count)
                 return;
-            _vignette.Enabled = !_vignette.Enabled;
-            UpdateVignetteButtonLabel();
-        }
-
-        private void UpdateVignetteButtonLabel()
-        {
-            if (_vignetteButtonLabel == null)
-                return;
-            _vignetteButtonLabel.text = _vignette != null && _vignette.Enabled
-                ? "COMFORT VIGNETTE: ON"
-                : "COMFORT VIGNETTE: OFF";
+            var place = _searchSuggestions[index].Place;
+            SetOpen(false);
+            _arrival.TravelTo(_arrival.CreateSearchDestination(place));
         }
 
         private static string Shorten(string value, int maximumLength) =>
@@ -342,46 +723,95 @@ namespace EarthVR.UI
             // A script recompile while Play mode is active can leave this runtime-built
             // panel alive while its non-serialized service references are reset.
             if (_canvas == null || _input == null || _navigation == null || _scaling == null ||
-                _earth == null || _selectionController == null || _rig == null)
+                _earth == null || _originRebaser == null || _selectionController == null || _rig == null ||
+                _arrival == null)
                 return;
             var rightTriggerHeld = _input.RightTriggerHeld;
             var rightTriggerPressed = rightTriggerHeld && !_rightTriggerWasHeld;
             _rightTriggerWasHeld = rightTriggerHeld;
+            if (_credentialSetup != null && _credentialSetup.IsOpen)
+            {
+                if (_isOpen) SetOpen(false);
+                _canvas.gameObject.SetActive(false);
+                SetPointedButton(null);
+                _globePicker.SetVisible(false);
+                return;
+            }
+            if (_overview == null || !_overview.IsActive)
+                _globePicker.SetVisible(true);
+
+            // Travel owns the view and the right-hand pointer: any journey closes
+            // the menu, and the menu cannot be reopened until the journey ends.
+            if (_arrival.IsArriving || (_overview != null && _overview.IsActive))
+            {
+                if (_isOpen)
+                    SetOpen(false);
+                _canvas.gameObject.SetActive(false);
+                SetPointedButton(null);
+                return;
+            }
             if (_input.OpenMenuPressed)
             {
-                var opening = !_canvas.gameObject.activeSelf;
-                _canvas.gameObject.SetActive(opening);
-                if (opening)
-                    SummonInFrontOfViewer();
+                SetOpen(!_isOpen);
+                rightTriggerPressed = false;
             }
-            if (!_canvas.gameObject.activeSelf)
+            PlaceBesideGlobe();
+            var showControls = _globePicker.IsVisible;
+            _canvas.gameObject.SetActive(showControls);
+            if (!showControls)
             {
                 SetPointedButton(null);
                 return;
             }
 
+            PlaceBesideGlobe();
+            RefreshStateButtons(false);
+            // The panel rides the tracked hand and was just re-placed. Transform
+            // auto-sync is off in this project, so sync before ray-testing the
+            // buttons where they are drawn this frame.
+            Physics.SyncTransforms();
             SetPointedButton(FindNearestPointedButton());
             if (rightTriggerPressed)
                 _pointedButton?.Invoke();
+            // The pressed button may have started travel, which closes the menu.
+            if (!_isOpen)
+                return;
 
             _smoothedDelta = Mathf.Lerp(_smoothedDelta, Time.unscaledDeltaTime, 0.05f);
             if (Time.unscaledTime < _nextUiRefreshTime)
                 return;
             _nextUiRefreshTime = Time.unscaledTime + UiRefreshIntervalSeconds;
 
-            _modeBadge.text = _navigation.State.Mode == MovementMode.Flight
-                ? "●  FLIGHT"
-                : "●  GROUNDED";
-            _status.text =
-                $"HEIGHT  {ScaleMath.ApproximateEyeHeight(_settings.realEyeHeightMeters, _scaling.UserScale):N1} m       " +
-                $"SPEED  {_navigation.CurrentGeographicSpeed:N1} m/s\n" +
-                "THUMBSTICK  Aim + move       RIGHT TRIGGER  Grab ground\n" +
-                "GRIP  Rotate world              SHOULDER  Flight boost\n" +
-                "SUN / MOON  Point + trigger to change time";
+            _modeBadge.text = _navigation.State.Mode switch
+            {
+                MovementMode.Flight => "●  FLIGHT",
+                MovementMode.Car => "●  CAR",
+                _ => "●  GROUNDED"
+            };
+            if (_navigation.State.Mode == MovementMode.Car)
+            {
+                _status.text =
+                    $"CAR SPEED  {Mathf.Abs(_navigation.CarSpeedMetersPerSecond) * 3.6f:N0} km/h\n" +
+                    "RIGHT STICK  ↑ throttle  ↓ reverse  ← → steer\n" +
+                    "SHOULDER  Turbo                 MENU  Exit car mode";
+            }
+            else
+            {
+                _status.text =
+                    $"HEIGHT  {ScaleMath.ApproximateEyeHeight(_settings.realEyeHeightMeters, _scaling.UserScale):N1} m       " +
+                    $"SPEED  {_navigation.CurrentGeographicSpeed:N1} m/s\n" +
+                    "THUMBSTICK  Aim + move       RIGHT TRIGGER  Grab ground\n" +
+                    "GRIP  Rotate world              SHOULDER  Speed boost\n" +
+                    "SUN / MOON  Point + trigger to change time\n" +
+                    "LEFT D-PAD  ↑ Overview       → Flight / grounded";
+            }
 
             if (!_showPerformance)
             {
-                _diagnostics.text = _earth.StatusMessage + "\nPerformance details: off";
+                var arrivalStatus = string.IsNullOrEmpty(_arrival.StatusMessage)
+                    ? string.Empty
+                    : "\n" + _arrival.StatusMessage;
+                _diagnostics.text = _earth.StatusMessage + arrivalStatus + "\nPerformance details: off";
                 return;
             }
 
@@ -391,31 +821,43 @@ namespace EarthVR.UI
             builder.AppendLine($"Frame: {_smoothedDelta * 1000f:N1} ms");
             builder.AppendLine($"Altitude: {_navigation.AltitudeMeters:N0} m ellipsoid");
             builder.AppendLine($"Lon/Lat: {llh.x:F5}, {llh.y:F5}");
+            builder.AppendLine($"Origin: {_originRebaser.DistanceFromOriginUnityMeters:N0} m  ·  rebases {_originRebaser.RebaseCount}");
             builder.AppendLine($"Managed+native allocated: {Profiler.GetTotalAllocatedMemoryLong() / (1024 * 1024):N0} MB");
             builder.AppendLine($"Tiles for view: {_earth.Tileset.ComputeLoadProgress():N0}%");
             builder.Append(_earth.StatusMessage);
             _diagnostics.text = builder.ToString();
         }
 
-        /// <summary>Re-anchors the panel a fixed distance in front of wherever
-        /// the head is looking, upright (yaw only), facing back toward the
-        /// viewer. Called only when the menu transitions from closed to open,
-        /// so it summons in front of the viewer without chasing the head
-        /// afterward.</summary>
-        private void SummonInFrontOfViewer()
+        /// <summary>Keeps the complete interface in the globe's head-readable
+        /// frame. The panel and its circular controls now move as one object with
+        /// the miniature Earth instead of being independently positioned.</summary>
+        private void PlaceBesideGlobe()
         {
-            var headTransform = _rig.Camera.transform;
-            var headPosition = headTransform.position;
-            var facing = Vector3.ProjectOnPlane(headTransform.forward, Vector3.up);
-            if (facing.sqrMagnitude < 0.0001f)
-                facing = Vector3.ProjectOnPlane(-headTransform.up, Vector3.up);
-            if (facing.sqrMagnitude < 0.0001f)
-                facing = Vector3.forward;
-            facing.Normalize();
-
-            _canvas.transform.position = headPosition + facing * SummonDistanceMeters + Vector3.down * SummonDownOffsetMeters;
-            _canvas.transform.rotation = Quaternion.LookRotation(-facing, Vector3.up);
+            if (_canvas == null || _rig == null)
+                return;
+            _globePicker?.RefreshInterfaceAnchorPose();
+            _canvas.transform.localPosition = Vector3.zero;
+            _canvas.transform.localRotation = Quaternion.identity;
+            // Each panel is offset from the globe. Face it from its own center,
+            // rather than sharing the globe's oblique line of sight.
+            FacePanel(_mainPanel);
+            FacePanel(_searchPanel);
+            FacePanel(_placesPanel);
+            _globePicker?.SetMenuFocusPosition(_isOpen ? _mainPanel.transform.position : (Vector3?)null);
+            _globePicker?.SetControlsFocusPosition(_canvas.transform.TransformPoint(new Vector3(550f, 0f, 0f)));
         }
+
+        private void FacePanel(GameObject panel)
+        {
+            if (panel == null)
+                return;
+            var fromViewer = panel.transform.position - _rig.Camera.transform.position;
+            if (fromViewer.sqrMagnitude > 0.000001f)
+                panel.transform.rotation = Quaternion.LookRotation(fromViewer.normalized, _rig.Camera.transform.up);
+        }
+
+        private void OnEnable() => Application.onBeforeRender += PlaceBesideGlobe;
+        private void OnDisable() => Application.onBeforeRender -= PlaceBesideGlobe;
 
         private WorldSpaceButton FindNearestPointedButton()
         {
@@ -430,7 +872,8 @@ namespace EarthVR.UI
             foreach (var hit in hits)
             {
                 var button = hit.collider.GetComponent<WorldSpaceButton>();
-                if (button == null || !button.gameObject.activeInHierarchy || hit.distance >= nearestDistance)
+                if (button == null || !button.transform.IsChildOf(_canvas.transform) ||
+                    !button.gameObject.activeInHierarchy || hit.distance >= nearestDistance)
                     continue;
                 nearestButton = button;
                 nearestDistance = hit.distance;
@@ -451,6 +894,8 @@ namespace EarthVR.UI
         {
             _searchCancellation?.Cancel();
             _searchCancellation?.Dispose();
+            if (_places != null)
+                _places.Changed -= RefreshPlaces;
         }
 
         private static GameObject CreatePanel(Transform parent, Color color)
@@ -467,6 +912,16 @@ namespace EarthVR.UI
             outline.effectColor = new Color(0.22f, 0.62f, 0.78f, 0.4f);
             outline.effectDistance = new Vector2(2.5f, -2.5f);
             return panel;
+        }
+
+        private static void ConfigureMenuPanel(GameObject panel)
+        {
+            var rect = panel.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(MenuPanelOffsetPixels, 0f);
+            rect.sizeDelta = new Vector2(640f, 960f);
         }
 
         private static GameObject CreateCard(
@@ -516,7 +971,7 @@ namespace EarthVR.UI
             button.onClick.AddListener(callback);
             button.targetGraphic = image;
             var colors = button.colors;
-            colors.normalColor = ButtonColor;
+            colors.normalColor = Color.white;
             colors.highlightedColor = new Color(0.10f, 0.34f, 0.45f, 1f);
             colors.pressedColor = new Color(0.20f, 0.68f, 0.82f, 1f);
             colors.selectedColor = colors.highlightedColor;
@@ -524,6 +979,7 @@ namespace EarthVR.UI
             colors.colorMultiplier = 1f;
             colors.fadeDuration = 0.08f;
             button.colors = colors;
+            button.transition = Selectable.Transition.None;
             var collider = gameObject.GetComponent<BoxCollider>();
             // A small invisible margin beyond the visible button graphic —
             // pointer aim at VR distances is imprecise, so the hit target is
@@ -536,6 +992,53 @@ namespace EarthVR.UI
             text.text = label;
             text.fontStyle = FontStyle.Bold;
             return gameObject;
+        }
+
+        /// <summary>A button whose color reports a state. Its tint is neutral so
+        /// the color set through <see cref="WorldSpaceButton.SetNormalColor"/>
+        /// shows as-is instead of being multiplied by the regular button tint.</summary>
+        private static WorldSpaceButton CreateStateButton(
+            Transform parent,
+            string name,
+            Vector2 position,
+            UnityEngine.Events.UnityAction callback,
+            Vector2 size,
+            out Text label)
+        {
+            var buttonObject = CreateButton(parent, name, position, callback, size);
+            var button = buttonObject.GetComponent<Button>();
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = Color.white;
+            colors.pressedColor = Color.white;
+            colors.selectedColor = Color.white;
+            button.colors = colors;
+            label = buttonObject.GetComponentInChildren<Text>();
+            return buttonObject.GetComponent<WorldSpaceButton>();
+        }
+
+        private static WorldSpaceButton CreateRoundStateButton(
+            Transform parent,
+            string name,
+            Vector2 position,
+            UnityEngine.Events.UnityAction callback,
+            Vector2 size,
+            out Text label)
+        {
+            var buttonObject = CreateButton(parent, name, position, callback, size);
+            var image = buttonObject.GetComponent<Image>();
+            image.sprite = GetCircleSprite();
+            image.type = Image.Type.Simple;
+            var button = buttonObject.GetComponent<Button>();
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = Color.white;
+            colors.pressedColor = Color.white;
+            colors.selectedColor = Color.white;
+            button.colors = colors;
+            label = buttonObject.GetComponentInChildren<Text>();
+            label.fontSize = 17;
+            return buttonObject.GetComponent<WorldSpaceButton>();
         }
 
         private static void StyleRoundedImage(Image image, Color color)
@@ -584,6 +1087,43 @@ namespace EarthVR.UI
             _roundedSprite.name = "EarthVR Rounded UI Sprite";
             _roundedSprite.hideFlags = HideFlags.HideAndDontSave;
             return _roundedSprite;
+        }
+
+        private static Sprite GetCircleSprite()
+        {
+            if (_circleSprite != null)
+                return _circleSprite;
+
+            const int size = 64;
+            var center = new Vector2((size - 1f) * 0.5f, (size - 1f) * 0.5f);
+            var radius = size * 0.5f - 1f;
+            _circleTexture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "EarthVR Circular UI Texture",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            var pixels = new Color32[size * size];
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    var distance = Vector2.Distance(new Vector2(x, y), center);
+                    var alpha = (byte)Mathf.RoundToInt(255f * Mathf.Clamp01(radius + 0.75f - distance));
+                    pixels[y * size + x] = new Color32(255, 255, 255, alpha);
+                }
+            }
+            _circleTexture.SetPixels32(pixels);
+            _circleTexture.Apply(false, true);
+            _circleSprite = Sprite.Create(
+                _circleTexture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.5f, 0.5f),
+                100f);
+            _circleSprite.name = "EarthVR Circular UI Sprite";
+            _circleSprite.hideFlags = HideFlags.HideAndDontSave;
+            return _circleSprite;
         }
     }
 }

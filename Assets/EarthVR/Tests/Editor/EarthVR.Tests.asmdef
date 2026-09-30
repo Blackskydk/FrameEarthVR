@@ -2,7 +2,8 @@
   "name": "EarthVR.Tests",
   "rootNamespace": "EarthVR.Tests",
   "references": [
-    "EarthVR.Runtime"
+    "EarthVR.Runtime",
+    "Unity.Mathematics"
   ],
   "includePlatforms": ["Editor"],
   "optionalUnityReferences": ["TestAssemblies"],

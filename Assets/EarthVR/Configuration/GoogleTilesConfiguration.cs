@@ -18,6 +18,7 @@ namespace EarthVR.Configuration
 
         public static IEnumerator LoadApiKey(Action<string> completed)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             var environmentValue = Environment.GetEnvironmentVariable("EARTHVR_GOOGLE_MAPS_API_KEY");
             if (IsUsable(environmentValue))
             {
@@ -54,6 +55,11 @@ namespace EarthVR.Configuration
             }
 
             completed(IsUsable(configuration?.apiKey) ? configuration.apiKey.Trim() : null);
+#else
+            // The public player uses Cesium ion. Never reuse publisher keys.
+            completed(null);
+            yield break;
+#endif
         }
 
         public static string BuildRootUrl(string apiKey)

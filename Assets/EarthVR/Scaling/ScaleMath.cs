@@ -4,6 +4,15 @@ namespace EarthVR.Scaling
 {
     public static class ScaleMath
     {
+        /// <summary>Grounded resizing needs deliberate vertical aim and stick input.
+        /// Both locomotion and resizing use this decision, so they cannot fight.</summary>
+        public static float GroundedScaleIntent(float forwardY, float stickY)
+        {
+            if (Math.Abs(forwardY) < 0.94f || Math.Abs(stickY) <= 0.2f) return 0f;
+            var strength = Math.Min(1f, (Math.Abs(stickY) - 0.2f) / 0.8f);
+            return Math.Sign(forwardY) * Math.Sign(stickY) * strength;
+        }
+
         public static float Clamp(float scale, float minimum, float maximum)
         {
             if (minimum <= 0f)

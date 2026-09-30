@@ -47,12 +47,7 @@ namespace EarthVR.UI
         private float _selectionExpires;
         private bool _visibilityAllowed = true;
         private bool _summoned;
-        private float _gazeVisibleUntil;
-        private Vector3? _menuFocusPosition;
-        private Vector3? _controlsFocusPosition;
         public bool IsVisible => _root != null && _root.activeSelf;
-        public void SetMenuFocusPosition(Vector3? position) => _menuFocusPosition = position;
-        public void SetControlsFocusPosition(Vector3 position) => _controlsFocusPosition = position;
 
         /// <summary>A head-readable frame centered on the miniature Earth. UI
         /// parented here stays physically attached to the globe as the hand moves.</summary>
@@ -75,8 +70,6 @@ namespace EarthVR.UI
         public void SetSummoned(bool summoned)
         {
             _summoned = summoned;
-            if (summoned)
-                _gazeVisibleUntil = Time.unscaledTime + 0.5f;
             UpdateVisibility();
         }
 
@@ -154,33 +147,9 @@ namespace EarthVR.UI
             if (_root == null)
                 return;
 
-            // A drag already in progress keeps the globe until trigger release,
-            // even if the menu closes underneath it.
-            var handPosition = _rig.LeftController.TransformPoint(LeftHandOffset);
-            var toHand = handPosition - _rig.Camera.transform.position;
-            // Reveal only when looking deliberately at the hand (12 degrees),
-            // with a slightly wider retention cone (18 degrees) to avoid flicker.
-            var gazeThreshold = IsVisible ? 0.951f : 0.978f;
-            var focused = toHand.magnitude < 1.2f && toHand.magnitude > 0.15f &&
-                Vector3.Dot(_rig.Camera.transform.forward, toHand.normalized) > gazeThreshold;
-            // Once revealed, looking directly at the controls counts as focus.
-            // It cannot summon the UI from a peripheral hand position.
-            if (IsVisible && _controlsFocusPosition.HasValue)
-            {
-                var toControls = _controlsFocusPosition.Value - _rig.Camera.transform.position;
-                focused |= toControls.magnitude < 1.5f && toControls.magnitude > 0.15f &&
-                    Vector3.Dot(_rig.Camera.transform.forward, toControls.normalized) > gazeThreshold;
-            }
-            if (_summoned && _menuFocusPosition.HasValue)
-            {
-                var toMenu = _menuFocusPosition.Value - _rig.Camera.transform.position;
-                focused |= toMenu.magnitude < 1.5f && toMenu.magnitude > 0.15f &&
-                    Vector3.Dot(_rig.Camera.transform.forward, toMenu.normalized) > gazeThreshold;
-            }
-            if (focused)
-                _gazeVisibleUntil = Time.unscaledTime + 0.2f;
-            var shouldShow = _visibilityAllowed && !_arrival.IsArriving &&
-                (_dragging || Time.unscaledTime < _gazeVisibleUntil);
+            // The controller menu button owns visibility. Head gaze never opens,
+            // closes, or retains the globe after the user dismisses the menu.
+            var shouldShow = _visibilityAllowed && !_arrival.IsArriving && _summoned;
             if (_root.activeSelf == shouldShow)
                 return;
 
@@ -327,7 +296,7 @@ namespace EarthVR.UI
                 : _rig.LeftController.TransformPoint(LeftHandOffset);
             var fromViewer = InterfaceAnchor.position - _rig.Camera.transform.position;
             if (fromViewer.sqrMagnitude > 0.000001f)
-                InterfaceAnchor.rotation = Quaternion.LookRotation(fromViewer.normalized, _rig.Camera.transform.up);
+                InterfaceAnchor.rotation = Quaternion.LookRotation(fromViewer.normalized, Vector3.up);
         }
 
         private void UpdateCurrentLocationMarker()
@@ -345,6 +314,10 @@ namespace EarthVR.UI
         {
             if (_root == null)
                 return;
+            // The carry offset belongs to the view, not the controller's roll.
+            var forward = Vector3.ProjectOnPlane(_rig.Camera.transform.forward, Vector3.up).normalized;
+            _root.transform.position = _rig.LeftController.position + Vector3.up * LeftHandOffset.y +
+                forward * LeftHandOffset.z;
             _root.transform.rotation = _globeRotation;
             RefreshInterfaceAnchorPose();
             UpdateCurrentLocationMarker();

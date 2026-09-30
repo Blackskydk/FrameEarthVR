@@ -779,7 +779,7 @@ namespace EarthVR.UI
                 rightTriggerPressed = false;
             }
             PlaceBesideGlobe();
-            var showControls = _globePicker.IsVisible;
+            var showControls = _isOpen && _globePicker.IsVisible;
             _canvas.gameObject.SetActive(showControls);
             if (!showControls)
             {
@@ -866,8 +866,6 @@ namespace EarthVR.UI
             FacePanel(_mainPanel);
             FacePanel(_searchPanel);
             FacePanel(_placesPanel);
-            _globePicker?.SetMenuFocusPosition(_isOpen ? _mainPanel.transform.position : (Vector3?)null);
-            _globePicker?.SetControlsFocusPosition(_canvas.transform.TransformPoint(new Vector3(550f, 0f, 0f)));
         }
 
         private void FacePanel(GameObject panel)
@@ -876,7 +874,7 @@ namespace EarthVR.UI
                 return;
             var fromViewer = panel.transform.position - _rig.Camera.transform.position;
             if (fromViewer.sqrMagnitude > 0.000001f)
-                panel.transform.rotation = Quaternion.LookRotation(fromViewer.normalized, _rig.Camera.transform.up);
+                panel.transform.rotation = Quaternion.LookRotation(fromViewer.normalized, Vector3.up);
         }
 
         private void OnEnable() => Application.onBeforeRender += PlaceBesideGlobe;

@@ -5,6 +5,20 @@ namespace EarthVR.Tests
 {
     public sealed class ScaleMathTests
     {
+        [TestCase(1f, 1f, 1f)]
+        [TestCase(-1f, 1f, -1f)]
+        [TestCase(1f, -1f, -1f)]
+        [TestCase(-1f, -1f, 1f)]
+        [TestCase(1f, 0.6f, 0.5f)]
+        [TestCase(0.93f, 1f, 0f)]
+        [TestCase(-0.93f, 1f, 0f)]
+        [TestCase(1f, 0.2f, 0f)]
+        [TestCase(1f, 0f, 0f)]
+        public void GroundedScaleRequiresVerticalAimAndDeliberateStick(float aimY, float stickY, float expected)
+        {
+            Assert.That(ScaleMath.GroundedScaleIntent(aimY, stickY), Is.EqualTo(expected).Within(0.0001f));
+        }
+
         [TestCase(1f, 0f)]
         [TestCase(10f, 0.25f)]
         [TestCase(100f, 0.5f)]
@@ -38,4 +52,3 @@ namespace EarthVR.Tests
         }
     }
 }
-

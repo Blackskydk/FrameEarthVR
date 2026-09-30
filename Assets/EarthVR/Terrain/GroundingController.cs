@@ -307,11 +307,11 @@ namespace EarthVR.Terrain
                 _verticalVelocity = 0f;
                 return;
             }
-            if (_scaling.IsDraggingEarth)
+            if (_scaling.IsDraggingEarth || _scaling.IsScalingGrounded)
             {
-                // Grounded grab solves the selected ECEF point and floor height
-                // together. A second height correction here would break that
-                // exact point lock and cause a drop when the trigger is released.
+                // Grab and manual resizing own the geographic foot anchor.
+                // Resampling streamed rooftops during either gesture would
+                // move that anchor and make scaling drift or jump.
                 _verticalVelocity = 0f;
                 return;
             }
@@ -435,7 +435,8 @@ namespace EarthVR.Terrain
             while (true)
             {
                 yield return new WaitForSeconds(_settings.heightSampleIntervalSeconds);
-                if (!IsSurfaceMode(_navigation.State.Mode) || _tileset == null || _tileset.suspendUpdate)
+                if (!IsSurfaceMode(_navigation.State.Mode) || _tileset == null || _tileset.suspendUpdate ||
+                    _scaling.IsScalingGrounded)
                     continue;
 
                 var llh = _navigation.LongitudeLatitudeHeight;

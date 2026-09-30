@@ -31,6 +31,13 @@ pair with Devkit Client, launch the game once, and close it before setup. Reopen
 from Steam afterwards. The saved token survives updates. See the
 [token setup guide](docs/STANDALONE_INSTALL.md#supply-your-own-token-on-first-launch).
 
+**Preview.6 controls:** the left controller View/menu button opens and closes the
+globe and menu together; gaze no longer changes their visibility. Panels stay
+upright without inheriting head/controller roll. In Grounded mode, aim the right
+controller nearly straight up/down and push its stick forward/back to resize.
+Walking and ground correction pause while one geographic support point stays
+anchored, including when shrinking back from giant scale.
+
 **Direct updates (preview.4 source):** the hand menu adds **Download & Apply
 Update** for APK and Windows builds. Windows PCs include the updater. Frame
 needs a one-time helper setup for Lepton/Proton, using **one terminal command**;

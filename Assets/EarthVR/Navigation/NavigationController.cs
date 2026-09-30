@@ -166,6 +166,15 @@ namespace EarthVR.Navigation
             var requested = Mathf.Clamp01(fly.magnitude);
             if (_state.Mode == MovementMode.Grounded)
             {
+                if (!_input.BoostHeld && Mathf.Abs(ScaleMath.GroundedScaleIntent(
+                        _rig.RightController.forward.y, fly.y)) > 0.001f)
+                {
+                    _currentGeographicSpeed = 0f;
+                    _speedVelocity = 0f;
+                    IsActivelyMoving = false;
+                    PhysicalSpeedMetersPerSecond = 0f;
+                    return;
+                }
                 var horizontalAim = Vector3.ProjectOnPlane(
                     _rig.RightController.forward,
                     Vector3.up).magnitude;

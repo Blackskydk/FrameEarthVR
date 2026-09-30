@@ -15,6 +15,34 @@ namespace EarthVR.Tests
     public sealed class NavigationLogicTests
     {
         [Test]
+        public void GlobeRemainsExplicitlySummonedUntilDismissed()
+        {
+            var host = new GameObject("Globe visibility test");
+            var root = new GameObject("Test globe");
+            root.SetActive(false);
+            try
+            {
+                var globe = host.AddComponent<MiniatureGlobePicker>();
+                var arrival = host.AddComponent<LoadingAwareArrivalController>();
+                const System.Reflection.BindingFlags fields = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                typeof(MiniatureGlobePicker).GetField("_root", fields).SetValue(globe, root);
+                typeof(MiniatureGlobePicker).GetField("_arrival", fields).SetValue(globe, arrival);
+                globe.SetVisible(true);
+                Assert.That(globe.IsVisible, Is.False, "Looking toward the hand must not reveal a closed globe.");
+                globe.SetSummoned(true);
+                Assert.That(globe.IsVisible, Is.True);
+                globe.SetVisible(false);
+                Assert.That(globe.IsVisible, Is.False, "Travel/account setup suppresses an open globe.");
+                globe.SetVisible(true);
+                Assert.That(globe.IsVisible, Is.True);
+                globe.SetSummoned(false);
+                globe.SetVisible(true);
+                Assert.That(globe.IsVisible, Is.False, "Dismissal must clear visibility immediately.");
+            }
+            finally { UnityEngine.Object.DestroyImmediate(host); UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [Test]
         public void StateTransitionsAreInputIndependent()
         {
             var state = new NavigationState();

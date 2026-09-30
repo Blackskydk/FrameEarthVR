@@ -42,9 +42,11 @@ namespace EarthVR.Scaling
         private Quaternion _previousHandLocalRotation;
 
         private Vector3 _momentumVelocity;
+        private double3? _groundedScaleAnchorEcef;
 
         public float UserScale { get; private set; } = 1f;
         public bool IsDraggingEarth => _hasGrabAnchor;
+        public bool IsScalingGrounded => _groundedScaleAnchorEcef.HasValue;
         public bool InteractionsEnabled { get; set; } = true;
         public bool GroundedScalingEnabled { get; set; } = true;
         public event System.Action<float> ScaleChanged;
@@ -85,6 +87,10 @@ namespace EarthVR.Scaling
         {
             if (_input == null)
                 return;
+            if (!InteractionsEnabled || _input.BoostHeld ||
+                _navigation.State.Mode != MovementMode.Grounded || !GroundedScalingEnabled ||
+                _input.RightTriggerHeld || _input.LeftGripHeld || _input.RightGripHeld)
+                _groundedScaleAnchorEcef = null;
             if (!InteractionsEnabled)
             {
                 _hasGrabAnchor = false;
@@ -291,26 +297,44 @@ namespace EarthVR.Scaling
 
         private void UpdateGroundedScale()
         {
-            if (_navigation.State.Mode != MovementMode.Grounded || !GroundedScalingEnabled)
+            if (_navigation.State.Mode != MovementMode.Grounded || !GroundedScalingEnabled ||
+                IsHandBlocked(_right))
+            {
+                _groundedScaleAnchorEcef = null;
                 return;
-
-            var stick = _input.Fly;
-            var intendedDirection = _right.forward * stick.y + _right.right * stick.x;
-            var verticalIntent = Mathf.Clamp(intendedDirection.y, -1f, 1f);
-            // Ordinary walking aim often tilts down toward the ground. Reserve
-            // scale changes for a deliberate near-vertical gesture so walking
-            // does not continuously resize Earth underneath the tracking floor.
-            var scaleIntent = Mathf.Sign(verticalIntent) *
-                Mathf.InverseLerp(0.9f, 0.99f, Mathf.Abs(verticalIntent));
+            }
+            var scaleIntent = ScaleMath.GroundedScaleIntent(_right.forward.y, _input.Fly.y);
             if (Mathf.Abs(scaleIntent) < 0.001f)
+            {
+                _groundedScaleAnchorEcef = null;
                 return;
-
+            }
+            _momentumVelocity = Vector3.zero;
             var scaleRate = _settings.groundedScaleDoublingsPerSecond;
             var multiplier = Mathf.Pow(
                 2f,
-                scaleIntent * scaleRate * Time.deltaTime);
-            SetUserScale(UserScale * multiplier);
+                scaleIntent * scaleRate * Mathf.Min(Time.deltaTime, 0.05f));
+            ApplyGroundedScale(UserScale * multiplier);
         }
+
+        private void ApplyGroundedScale(float requestedScale)
+        {
+            // Anchor the supporting surface, not the clearance above it. Keeping
+            // a giant's clearance in geographic metres would leave a human-sized
+            // user suspended high above the ground when shrinking back down.
+            _groundedScaleAnchorEcef ??= WorldToEcef(
+                _rig.TrackingOrigin.position - Vector3.up * GroundedClearance());
+            SetUserScale(requestedScale, _groundedScaleAnchorEcef.Value);
+            // Solve from the same ECEF foot point each frame instead of repeatedly
+            // converting a floor that terrain correction has moved underneath us.
+            _rig.NavigationSpace.position = EcefToWorld(_groundedScaleAnchorEcef.Value) +
+                Vector3.up * GroundedClearance() -
+                _rig.NavigationSpace.TransformVector(_rig.TrackingOrigin.localPosition);
+            Physics.SyncTransforms();
+        }
+
+        private float GroundedClearance() => Mathf.Max(0.015f,
+            ScaleMath.GeographicToUnityMeters(_settings.groundClearanceMeters, UserScale));
 
         private bool IsPointingAtInterfaceOrCelestialHandle(Transform hand) =>
             Physics.Raycast(

@@ -118,6 +118,14 @@ namespace EarthVR.Configuration
             return $"CPU main {_smoothedCpuMain:0.0} · render thread {_smoothedCpuRender:0.0} · GPU {gpu} ms";
         }
 
+        /// <summary>Bit depth of the XR eye depth buffer (16/24/32). Fixed-point
+        /// 24-bit depth gives far coarser resolution at distance than float.</summary>
+        public static string DescribeDepth()
+        {
+            var bits = XRSettings.eyeTextureDesc.depthBufferBits;
+            return bits > 0 ? $"depth {bits}-bit" : "depth unknown";
+        }
+
         /// <summary>One line for the in-headset performance panel showing what
         /// the renderer is actually using, so overrides can be confirmed. MSAA
         /// and scale are the values written to the URP asset, not a readback of

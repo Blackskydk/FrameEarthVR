@@ -75,6 +75,32 @@ texture-edge differences between neighbouring tiles) rather than foveation, and
 it is the pattern a higher MSAA count or render scale would soften. Whether PC
 shows the same lines at the old MSAA 2 / scale 1.0 is the key comparison.
 
+A second pair of screenshots (Singapore, Marina Bay) after the foveation change
+shows the same lines on the water, but here they are irregular polygon outlines
+(V and Z shapes, each a dark line beside a pale one) rather than a tile grid.
+Two explanations fit and they are told apart by behaviour: overlapping near-coplanar
+surfaces fighting for depth (lines shimmer when the head moves; PC with a float
+depth buffer would not show them) versus texture-atlas edge bleeding (lines stay
+fixed on the surface; PC would show them too). The performance panel's **Clip**
+line gives the near/far distances, user scale and depth bits needed to estimate
+depth resolution at distance: roughly distance squared over near times 2^bits.
+
+Changing settings without a rebuild by pushing the override file with adb (the
+Frame runs a real Android, so this usually works; the app reads the file at launch):
+
+```powershell
+$adb = "C:\Program Files\Unity\Hub\Editor\6000.3.14f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe"
+$s = "192.168.50.138:5555"
+Set-Content -Path .\settings-override.json -Value '{"humanNearClipMeters": 0.3}' -Encoding ascii
+& $adb -s $s push .\settings-override.json /sdcard/Android/data/com.frameearthvr.app/files/EarthVR/settings-override.json
+& $adb -s $s shell am force-stop com.frameearthvr.app
+& $adb -s $s shell monkey -p com.frameearthvr.app -c android.intent.category.LAUNCHER 1
+# wait about 40 seconds for the app to start, then confirm it was read:
+& $adb -s $s logcat -d -s Unity | Select-String "override","foveation"
+```
+
+Use `-Encoding ascii`: a byte-order mark makes the JSON fail to parse.
+
 If gaps persist in every configuration they are most likely inherent to Google's
 photogrammetry tiles at neighboring detail levels. Cesium already keeps parent
 tiles until their children are ready (`forbidHoles`), so the remaining

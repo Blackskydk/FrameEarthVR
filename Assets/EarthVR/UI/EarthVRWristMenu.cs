@@ -851,6 +851,13 @@ namespace EarthVR.UI
             builder.AppendLine($"Tiles for view: {_earth.Tileset.ComputeLoadProgress():N0}%");
             builder.AppendLine(RuntimeQuality.DescribeFrameTiming());
             builder.AppendLine(RuntimeQuality.Describe());
+            // Depth precision at distance is roughly distance^2 / (near * 2^bits),
+            // so near/far in geographic metres and the depth bits explain
+            // shimmering lines where two surfaces overlap.
+            var userScale = _navigation.UserScale;
+            builder.AppendLine(
+                $"Clip: near {_rig.Camera.nearClipPlane * userScale:0.00} m · far {_rig.Camera.farClipPlane * userScale:N0} m · " +
+                $"user scale {userScale:N1}x · {RuntimeQuality.DescribeDepth()}");
             builder.Append(_earth.StatusMessage);
             _diagnostics.text = builder.ToString();
         }

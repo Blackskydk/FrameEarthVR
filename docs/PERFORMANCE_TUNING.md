@@ -206,6 +206,28 @@ eye-tracking checked:
 Record for each: which eye, whether the boundary is straight or round, whether it
 moves with gaze, and the `EarthVR-XR display` log line (foveation flags).
 
+## Quick tests without rebuilding
+
+Each is one run of the capture script (about a minute). Use the same view and compare
+screenshots; `-ClearOverride` returns to the built-in values.
+
+| Question | Command |
+| --- | --- |
+| Is the foveation cutoff softer with a gentler level? | `-Override '{"standaloneFoveationLevelOverride": 0.1}'` |
+| Is uniform softness better than a sharp/blurry edge? | `-Override '{"standaloneFoveationLevelOverride": 0, "standaloneRenderScale": 0.9}'` |
+| Are the tile lines depth fighting? (near plane) | `-Override '{"humanNearClipMeters": 1.0}'` |
+| Are they lighting? | `-Override '{"standaloneFlatTileLighting": true}'` |
+| Are they MSAA related? | `-Override '{"standaloneMsaa": 1}'` |
+
+The foveation level may be quantized into a few steps by the runtime, so 0.1 and 0.25 can
+look identical; if so, the only gentler setting is off, and the render-scale row is the
+alternative that spends similar GPU time without a visible edge.
+The near-plane value is a test only: near distance is that value times the square root of
+your user scale, so a large value clips close surfaces and hands.
+
+If the game closes during a capture, the script reports it and saves a `-crash.txt`
+file; attach it.
+
 ## Not done
 
 - Baking the day/night colour grade into a custom tile shader (avoids the

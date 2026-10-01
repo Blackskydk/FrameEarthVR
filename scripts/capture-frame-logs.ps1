@@ -111,12 +111,28 @@ if ($Override) {
 if (-not $NoRestart) {
     & $adb -s $serial logcat -c
     & $adb -s $serial shell am force-stop $package
-    & $adb -s $serial shell monkey -p $package -c android.intent.category.LAUNCHER 1 | Out-Null
-    Write-Host "Relaunched $package."
+    Start-Sleep -Seconds 2
+    # Launch exactly as install-steam-frame.ps1 does. (monkey injects a random
+    # input event and can close the game.)
+    $resolvedActivities = & $adb -s $serial shell cmd package resolve-activity --brief `
+        -c android.intent.category.LAUNCHER $package
+    $launcherActivity = $resolvedActivities |
+        Where-Object { $_ -match '^com\.frameearthvr\.app/.+' } |
+        Select-Object -Last 1
+    if (-not $launcherActivity) {
+        throw "Could not find the launcher activity for $package."
+    }
+    & $adb -s $serial shell am start -W -n $launcherActivity | Out-Null
+    Write-Host "Relaunched $launcherActivity."
 }
 
 Write-Host "Collecting for $Seconds seconds. Put the headset on and go to the place with the problem."
 Start-Sleep -Seconds $Seconds
+
+$stillRunning = @(& $adb -s $serial shell pidof $package) -join ''
+if (-not $stillRunning.Trim()) {
+    Write-Warning 'The game is not running any more: it exited or crashed during the capture.'
+}
 
 $logDirectory = Join-Path $projectRoot 'Logs'
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
@@ -125,8 +141,10 @@ $fullPath = Join-Path $logDirectory "frame-logcat-$stamp.txt"
 $filteredPath = Join-Path $logDirectory "frame-logcat-$stamp-filtered.txt"
 
 & $adb -s $serial logcat -d -v threadtime | Out-File -FilePath $fullPath -Encoding utf8
+$crashPath = Join-Path $logDirectory "frame-logcat-$stamp-crash.txt"
+& $adb -s $serial logcat -b crash -d -v threadtime | Out-File -FilePath $crashPath -Encoding utf8
 
-$pattern = 'EarthVR|Unity|OpenXR|XR_|foveat|gaze|FDM|VALVE|Valve|Lepton|libVkLayer|AndroidRuntime|FATAL|crash'
+$pattern = 'EarthVR|Unity|OpenXR|XR_|foveat|gaze|FDM|VALVE|Valve|Lepton|libVkLayer|AndroidRuntime|FATAL|crash|DEBUG|Fatal signal|SIGSEGV|SIGABRT|backtrace|am_crash|am_proc_died|ANR'
 $header = @(
     "Captured: $stamp",
     "Package: $($packageLines -join ' | ')",
@@ -139,6 +157,13 @@ $filteredLines = @(Select-String -Path $fullPath -Pattern $pattern | ForEach-Obj
 Write-Host ''
 Write-Host "Saved: $filteredPath ($($filteredLines.Count) lines)"
 Write-Host "Saved: $fullPath"
+$crashLines = @(Select-String -Path $fullPath -Pattern 'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|am_crash' | ForEach-Object { $_.Line })
+if ($crashLines.Count -gt 0) {
+    Write-Host ''
+    Write-Warning 'The log contains crash markers. First lines:'
+    $crashLines | Select-Object -First 6 | ForEach-Object { Write-Host $_ }
+    Write-Host "Crash buffer saved: $crashPath (attach it too)"
+}
 Write-Host 'Attach the -filtered file to the chat. Key lines start with "EarthVR".'
 Write-Host ''
 Select-String -Path $filteredPath -Pattern 'EarthVR' | Select-Object -First 12 | ForEach-Object { Write-Host $_.Line }

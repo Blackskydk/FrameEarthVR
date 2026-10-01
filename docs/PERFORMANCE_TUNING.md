@@ -163,6 +163,32 @@ Suggested order:
 
 The panel's lines are short on purpose: the card fits about ten.
 
+## Capturing logs from the headset
+
+One command relaunches the game, optionally pushes a settings override first, waits,
+and saves the device log (the cloud session cannot reach a headset on your network,
+so the file is what gets attached to the chat):
+
+```powershell
+.\scripts\capture-frame-logs.ps1 -DeviceHost 192.168.50.138
+.\scripts\capture-frame-logs.ps1 -DeviceHost 192.168.50.138 -Override '{"standaloneMsaa": 1}'
+.\scripts\capture-frame-logs.ps1 -DeviceHost 192.168.50.138 -ClearOverride
+```
+
+It prints the installed version, saves `Logs\frame-logcat-<time>-filtered.txt` (attach
+this) and the complete `Logs\frame-logcat-<time>.txt`. If pushing the override fails,
+the error is shown; edit `EarthVRSettings.asset` and rebuild instead.
+
+Lines starting `EarthVR-XR` are written by the game once XR is running: the OpenXR
+runtime and its **enabled extensions** (look for `XR_FB_foveation`,
+`XR_META_foveation_eye_tracked`, an eye-gaze extension), the foveation level and
+flags, eye texture size and depth bits. Development builds also log a `perf` line
+every 10 seconds with frame time and the CPU/GPU split.
+
+Valve's documentation notes that foveated rendering on Steam Frame may not render
+correctly with MSAA enabled (stated for Unity 2022.3). This project uses MSAA 2x, so
+`{"standaloneMsaa": 1}` is the first thing to try for static blocky patches.
+
 ## Not done
 
 - Baking the day/night colour grade into a custom tile shader (avoids the

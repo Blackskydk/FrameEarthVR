@@ -52,6 +52,8 @@ namespace EarthVR.Core
             RuntimeQuality.Apply(settings);
             if (Application.isMobilePlatform)
                 StartCoroutine(RuntimeQuality.ApplyFoveationLevel(settings.standaloneFoveationLevelOverride));
+            StartCoroutine(XrDiagnostics.LogStartup());
+            StartCoroutine(XrDiagnostics.LogPerformance(10f));
 #if UNITY_6000_2_OR_NEWER
             if (OpenXRSettings.Instance != null)
                 OpenXRSettings.Instance.useOpenXRPredictedTime = true;

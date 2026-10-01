@@ -40,6 +40,8 @@ namespace EarthVR.Tests
                 Assert.That(settings.pcRenderScale, Is.GreaterThan(settings.standaloneRenderScale));
                 Assert.That(settings.standaloneBloom, Is.False);
                 Assert.That(settings.pcBloom, Is.True);
+                Assert.That(settings.standaloneFlatTileLighting, Is.False);
+                Assert.That(settings.pcFlatTileLighting, Is.False);
                 Assert.That(settings.standaloneFoveationLevelOverride, Is.EqualTo(0.25f).Within(0.0001f));
             }
             finally

@@ -30,8 +30,9 @@ namespace EarthVR.Editor
 
         /// <summary>Lets Valve's foveation feature move the sharp region with
         /// the eyes instead of fixing it at the centre. Experimental: it
-        /// depends on the runtime exposing eye-tracked foveation.</summary>
-        internal static bool EyeTrackedFoveation => EditorPrefs.GetBool(EyeTrackedFoveationKey, true);
+        /// depends on the runtime exposing eye-tracked foveation; off by default
+        /// because it left half of one eye blurry (gaze centre misplaced).</summary>
+        internal static bool EyeTrackedFoveation => EditorPrefs.GetBool(EyeTrackedFoveationKey, false);
 
         [MenuItem(EyeTrackedFoveationMenu, priority = 31)]
         private static void ToggleEyeTrackedFoveation() =>

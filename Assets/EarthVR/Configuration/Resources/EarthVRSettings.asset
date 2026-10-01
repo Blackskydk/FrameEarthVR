@@ -107,3 +107,5 @@ MonoBehaviour:
   standaloneSunShadows: 1
   standaloneEdgePreloadMargin: 1.1
   standaloneFoveationLevelOverride: 0.25
+  pcFlatTileLighting: 0
+  standaloneFlatTileLighting: 0

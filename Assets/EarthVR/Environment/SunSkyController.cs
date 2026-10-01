@@ -466,6 +466,19 @@ namespace EarthVR.Sky
             RenderSettings.reflectionIntensity = Mathf.Lerp(0.04f, 1f, daylight);
             RenderSettings.sun = _sunLight;
 
+            if (_settings.FlatTileLightingEnabled)
+            {
+                // Flat, direction-free ambient only: tiles show their own baked
+                // lighting instead of being re-lit by the sun (no facet shading,
+                // specular or sun shadows). Night still dims the scene.
+                _sunLight.intensity = 0f;
+                _sunLight.shadows = LightShadows.None;
+                _moonLight.intensity = 0f;
+                RenderSettings.ambientLight = Color.white * Mathf.Lerp(0.10f, 1f, daylight);
+                RenderSettings.ambientIntensity = 1f;
+                RenderSettings.reflectionIntensity = 0f;
+            }
+
             if (_colorAdjustments != null)
             {
                 // Keep nighttime controls and celestial handles readable; the sky,

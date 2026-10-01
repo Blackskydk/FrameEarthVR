@@ -14,6 +14,7 @@ a default changed, the reason is given so it can be reverted.
 | Render scale | 1.25 | 1.0 | Same route. |
 | Bloom | on | **off** | The pipeline is LDR and bloom's threshold is 1.1, so it adds several full-screen passes for almost no visible change. |
 | Sun shadows | on | on | Switch off to test their cost. |
+| Flat tile lighting | off | off | `standaloneFlatTileLighting` / `pcFlatTileLighting`: light tiles with flat ambient only, so the baked photogrammetry lighting is not re-lit by the sun. Test for line artifacts that are really faceted shading. |
 | Edge preload margin | n/a | 1.1 (was 1.2) | Headset-only extra camera that loads tiles just outside the view. |
 | Foveation level | n/a | 0.25 (was 0.5) | 0.5 looked too aggressive on Steam Frame. Higher is stronger; costs GPU time when lowered. |
 
@@ -116,8 +117,11 @@ negative leaves the build-time level alone). Lowering it costs GPU time.
 
 Eye-tracked foveation moves the sharp region with your gaze, so a tighter level
 costs nothing you can see. It is a build option: **EarthVR > Steam Frame >
-Eye-Tracked Foveation** (checked by default) sets Valve's `initialUseEyeTracking`.
+Eye-Tracked Foveation** (unchecked by default) sets Valve's `initialUseEyeTracking`.
 Whether it works depends on the Steam Frame runtime; the app only asks for it.
+When first enabled it left half of one eye blurry, as if the gaze centre were
+misplaced for that eye, so it is off by default. If the blur remains with it off,
+the cause is more likely the Android-only symmetric projection / render regions.
 If the sharp region still stays fixed, capture `adb logcat -s Unity` and the
 lines mentioning foveation or eye gaze.
 

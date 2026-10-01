@@ -144,6 +144,11 @@ namespace EarthVR.Configuration
         [Tooltip("Foveation level (0-1) applied once XR is running; higher is stronger. Negative leaves the build-time level untouched.")]
         [Range(-1f, 1f)] public float standaloneFoveationLevelOverride = 0.25f;
 
+        [Tooltip("Light tiles with a flat, direction-free ambient instead of the sun. Photogrammetry is already lit, so this avoids re-lighting it and its faceted shading; day/night still dims it.")]
+        public bool pcFlatTileLighting = false;
+        public bool standaloneFlatTileLighting = false;
+
+        public bool FlatTileLightingEnabled => Application.isMobilePlatform ? standaloneFlatTileLighting : pcFlatTileLighting;
         public bool BloomEnabled => Application.isMobilePlatform ? standaloneBloom : pcBloom;
         public bool SunShadowsEnabled => Application.isMobilePlatform ? standaloneSunShadows : pcSunShadows;
 

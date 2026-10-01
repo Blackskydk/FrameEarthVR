@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using EarthVR.Configuration;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.XR;
 using UnityEngine.XR.OpenXR;
@@ -17,6 +18,13 @@ namespace EarthVR.Core
     public static class XrDiagnostics
     {
         private const string Tag = "EarthVR-XR";
+        private static ProfilerRecorder _triangles;
+        private static ProfilerRecorder _drawCalls;
+        private static ProfilerRecorder _batches;
+
+        private static string DescribeRenderStats() => _triangles.Valid
+            ? $"tris {_triangles.LastValue / 1000}k draws {_drawCalls.LastValue} batches {_batches.LastValue}"
+            : "render stats n/a";
 
         /// <summary>Logs the runtime, enabled OpenXR extensions and display state
         /// once the XR display is running.</summary>
@@ -50,6 +58,9 @@ namespace EarthVR.Core
             if (!Debug.isDebugBuild || Application.isEditor)
                 yield break;
 
+            _triangles = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Triangles Count");
+            _drawCalls = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count");
+            _batches = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Batches Count");
             var next = Time.unscaledTime + intervalSeconds;
             while (true)
             {
@@ -59,7 +70,7 @@ namespace EarthVR.Core
                     next = Time.unscaledTime + intervalSeconds;
                     Debug.Log(
                         $"{Tag} perf frame={Time.unscaledDeltaTime * 1000f:0.0}ms " +
-                        $"{RuntimeQuality.DescribeFrameTiming()} | {RuntimeQuality.Describe()}");
+                        $"{RuntimeQuality.DescribeFrameTiming()} | {DescribeRenderStats()} | {RuntimeQuality.Describe()}");
                 }
                 yield return null;
             }

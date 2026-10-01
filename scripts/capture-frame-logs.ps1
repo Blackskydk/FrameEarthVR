@@ -22,7 +22,7 @@ relaunches Frame Earth VR, waits, then saves the device log to the Logs folder:
 param(
     [string]$DeviceHost = 'frame',
     [switch]$Usb,
-    [int]$Seconds = 60,
+    [int]$Seconds = 120,
     [string]$Override,
     [switch]$ClearOverride,
     [switch]$NoRestart
@@ -109,6 +109,9 @@ if ($Override) {
 }
 
 if (-not $NoRestart) {
+    # A larger log buffer: the game logs hundreds of warnings a minute and the default
+    # buffer overwrites the startup lines. Ignored if the device refuses.
+    & $adb -s $serial logcat -G 16M | Out-Null
     & $adb -s $serial logcat -c
     & $adb -s $serial shell am force-stop $package
     Start-Sleep -Seconds 2
@@ -126,7 +129,7 @@ if (-not $NoRestart) {
     Write-Host "Relaunched $launcherActivity."
 }
 
-Write-Host "Collecting for $Seconds seconds. Put the headset on and go to the place with the problem."
+Write-Host "Collecting for $Seconds seconds. Put the headset on, ACCEPT any permission dialog that appears (the game waits for it), and go to the place with the problem."
 Start-Sleep -Seconds $Seconds
 
 $stillRunning = @(& $adb -s $serial shell pidof $package) -join ''

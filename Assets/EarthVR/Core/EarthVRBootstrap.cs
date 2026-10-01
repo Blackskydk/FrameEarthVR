@@ -46,6 +46,14 @@ namespace EarthVR.Core
             SettingsOverrides.TryApplyFromDisk(settings);
             SelectStartingPlace(settings);
 
+            if (Application.isMobilePlatform)
+            {
+                // Cesium's mesh-collider warnings arrive hundreds of times a minute;
+                // stack traces made each one seven log lines and cost CPU to capture.
+                Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
+                Application.SetStackTraceLogType(LogType.Warning, StackTraceLogType.None);
+            }
+
             Application.targetFrameRate = 90;
             QualitySettings.vSyncCount = 0;
             QualitySettings.maxQueuedFrames = 1;

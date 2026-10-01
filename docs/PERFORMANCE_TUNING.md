@@ -228,6 +228,46 @@ your user scale, so a large value clips close surfaces and hands.
 If the game closes during a capture, the script reports it and saves a `-crash.txt`
 file; attach it.
 
+## Findings from headset logs (London, development build)
+
+From four captures of the Steam Frame running the development APK in dense London:
+
+- **Runtime:** SteamVR/OpenXR 2.17.10 with Valve's `XR_APILAYER_VALVE_fdm_injection` API
+  layer providing `XR_UNITY_foveation`. `XR_FB_foveation`, `XR_FB_foveation_configuration`,
+  `XR_FB_foveation_vulkan` and `XR_META_foveation_eye_tracked` are enabled, so eye-tracked
+  foveation is supported. `XR_EXT_eye_gaze_interaction`, `XR_FB_space_warp`,
+  `XR_EXT_frame_synthesis`, `XR_META_recommended_layer_resolution` and
+  `XR_FB_display_refresh_rate` are available but unused.
+- **CPU-bound, not pixel-bound.** Frame time stayed at 24-31 ms with foveation off and render
+  scale 0.9 (27.8 ms) as with foveation 0.25 at scale 1.0 (24.5-27.8 ms). Many frames are exactly
+  27.8 ms, two frames of a 72 Hz display (13.9 ms), and the main thread alone takes
+  12.6-18.7 ms, so it routinely misses the 13.9 ms budget and the game drops to every second
+  refresh. GPU time is not reported on this platform (`GPU n/a`).
+  Because the GPU is not the limit, lowering resolution or foveating buys nothing here;
+  higher MSAA or render scale should be nearly free.
+- **Development builds are slower.** They carry script debugging, profiler hooks and stack
+  traces. Judge performance with **Build Release APK**
+  (`build-and-install-steam-frame.ps1 -Release`).
+- **Physics mesh warnings.** Cesium baking mesh colliders logs "triangles where the distance
+  between any 2 vertices is greater than 500 units" about 230 times a minute. It means the
+  tiles contain very large triangles (flat water). Each warning used to print seven lines with
+  stack traces, which overflowed the log buffer and evicted the startup lines; stack traces are
+  now off for Log and Warning on the headset.
+- **A permission dialog appears at each launch.** The game does not start until it is accepted,
+  so a capture only sees what happens after that. The capture script now defaults to 120 s and
+  asks for a larger log buffer.
+
+Quick CPU tests (read `CPU` in the panel or the `perf` log line; same view each time):
+
+| Question | Override |
+| --- | --- |
+| How much is collider baking costing? | `{"createPhysicsMeshes": false}` (grounding and collisions then rely on height sampling) |
+| How much is tile detail costing? | `{"standaloneMaximumScreenSpaceError": 12}` |
+| Can quality rise for free? | `{"standaloneFoveationLevelOverride": 0, "standaloneMsaa": 4}` |
+
+For a definitive answer, attach Unity's Profiler to the development build over adb and record a
+few hundred frames in London; the main thread's top entries by time show where it goes.
+
 ## Not done
 
 - Baking the day/night colour grade into a custom tile shader (avoids the

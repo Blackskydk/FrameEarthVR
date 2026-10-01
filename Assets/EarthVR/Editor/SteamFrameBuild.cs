@@ -52,6 +52,7 @@ namespace EarthVR.Editor
         private const string RenderRegionsMenu = FeatureMenuRoot + "Render Regions + Symmetric Projection";
         private const string BufferDiscardsMenu = FeatureMenuRoot + "Buffer Discards";
         private const string LateLatchingMenu = FeatureMenuRoot + "Late Latching";
+        private const string SrpFoveationMenu = FeatureMenuRoot + "SRP Foveation API (off = Legacy)";
 
         private static bool GetFeature(string key) => EditorPrefs.GetBool("EarthVR.SteamFrame.Feature." + key, true);
         private static void ToggleFeature(string key) => EditorPrefs.SetBool("EarthVR.SteamFrame.Feature." + key, !GetFeature(key));
@@ -65,6 +66,7 @@ namespace EarthVR.Editor
         internal static bool RenderRegionsEnabled => GetFeature("RenderRegions");
         internal static bool BufferDiscardsEnabled => GetFeature("BufferDiscards");
         internal static bool LateLatchingEnabled => GetFeature("LateLatching");
+        internal static bool SrpFoveationApiEnabled => GetFeature("SrpFoveation");
 
         [MenuItem(FoveationMenu, priority = 40)]
         private static void ToggleFoveation() => ToggleFeature("Foveation");
@@ -81,6 +83,11 @@ namespace EarthVR.Editor
         [MenuItem(BufferDiscardsMenu, true)]
         private static bool ValidateBufferDiscards() => CheckFeature(BufferDiscardsMenu, "BufferDiscards");
 
+        [MenuItem(SrpFoveationMenu, priority = 44)]
+        private static void ToggleSrpFoveation() => ToggleFeature("SrpFoveation");
+        [MenuItem(SrpFoveationMenu, true)]
+        private static bool ValidateSrpFoveation() => CheckFeature(SrpFoveationMenu, "SrpFoveation");
+
         [MenuItem(LateLatchingMenu, priority = 43)]
         private static void ToggleLateLatching() => ToggleFeature("LateLatching");
         [MenuItem(LateLatchingMenu, true)]
@@ -88,10 +95,12 @@ namespace EarthVR.Editor
 
         /// <summary>Short code shown in the in-game panel so a headset build can be
         /// identified: F foveation, R render regions + symmetric projection,
-        /// B buffer discards, L late latching, E eye-tracked foveation (1 = on).</summary>
+        /// B buffer discards, L late latching, E eye-tracked foveation, S SRP
+        /// foveation API instead of Legacy (1 = on).</summary>
         internal static string FeatureTag() =>
             $"F{(FoveatedRenderingEnabled ? 1 : 0)}R{(RenderRegionsEnabled ? 1 : 0)}" +
-            $"B{(BufferDiscardsEnabled ? 1 : 0)}L{(LateLatchingEnabled ? 1 : 0)}E{(EyeTrackedFoveation ? 1 : 0)}";
+            $"B{(BufferDiscardsEnabled ? 1 : 0)}L{(LateLatchingEnabled ? 1 : 0)}E{(EyeTrackedFoveation ? 1 : 0)}" +
+            $"S{(SrpFoveationApiEnabled ? 1 : 0)}";
 
         [MenuItem(ForcePerformanceMenu, priority = 30)]
         private static void ToggleForcePerformanceFeatures() =>

@@ -145,12 +145,13 @@ Android-only OpenXR optimizations. Each is now a build switch under
 **EarthVR > Steam Frame > Android Features** (all checked by default, which is the
 previous behavior): Foveated Rendering, Render Regions + Symmetric Projection,
 Buffer Discards, Late Latching. Eye-tracked foveation is a separate item in the
-Steam Frame menu.
+Steam Frame menu. **SRP Foveation API (off = Legacy)** chooses which Unity foveation
+path is used.
 
 Change one, run **Build Development APK**, and read the **Build** line in the
-performance panel. It ends in a tag such as `+F1R0B1L1E0` (F foveation,
+performance panel. It ends in a tag such as `+F1R0B1L1E0S1` (F foveation,
 R render regions + symmetric projection, B buffer discards, L late latching,
-E eye-tracked foveation; 1 = on), so you can always tell which build is installed.
+E eye-tracked foveation, S SRP foveation API; 1 = on), so you can always tell which build is installed.
 The same tag is logged in `Logs/SteamFrameBuild.log`.
 
 Suggested order:
@@ -188,6 +189,22 @@ every 10 seconds with frame time and the CPU/GPU split.
 Valve's documentation notes that foveated rendering on Steam Frame may not render
 correctly with MSAA enabled (stated for Unity 2022.3). This project uses MSAA 2x, so
 `{"standaloneMsaa": 1}` is the first thing to try for static blocky patches.
+
+### Left eye wrong, right eye perfect (eye-tracked foveation)
+
+With eye-tracked foveation on, the sharp region followed gaze but in the left eye the
+blurred/sharp boundary sat in the middle of the view while the right eye was correct.
+A per-eye difference like that points at how the foveation map is placed for one
+eye's image, not at the gaze itself. Things to vary, one per build, with
+eye-tracking checked:
+
+1. **Render Regions + Symmetric Projection** on versus off.
+2. **SRP Foveation API** on versus off (Legacy).
+3. Foveation level (no rebuild): `{"standaloneFoveationLevelOverride": 0.1}`. A larger
+   sharp region hides a constant offset.
+
+Record for each: which eye, whether the boundary is straight or round, whether it
+moves with gaze, and the `EarthVR-XR display` log line (foveation flags).
 
 ## Not done
 

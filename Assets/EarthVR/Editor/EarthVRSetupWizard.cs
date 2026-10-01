@@ -181,7 +181,7 @@ namespace EarthVR.Editor
             {
                 Debug.Log("EarthVR Android features: " + SteamFrameBuild.FeatureTag() +
                           " (F foveation, R render regions + symmetric projection, B buffer discards, " +
-                          "L late latching, E eye-tracked foveation)");
+                          "L late latching, E eye-tracked foveation, S SRP foveation API)");
                 openXr.symmetricProjection = SteamFrameBuild.RenderRegionsEnabled;
 #if UNITY_6000_1_OR_NEWER
                 openXr.multiviewRenderRegionsOptimizationMode = SteamFrameBuild.RenderRegionsEnabled
@@ -189,7 +189,9 @@ namespace EarthVR.Editor
                     : OpenXRSettings.MultiviewRenderRegionsOptimizationMode.None;
 #endif
 #if UNITY_2023_2_OR_NEWER
-                openXr.foveatedRenderingApi = OpenXRSettings.BackendFovationApi.SRPFoveation;
+                openXr.foveatedRenderingApi = SteamFrameBuild.SrpFoveationApiEnabled
+                    ? OpenXRSettings.BackendFovationApi.SRPFoveation
+                    : OpenXRSettings.BackendFovationApi.Legacy;
 #endif
                 openXr.optimizeBufferDiscards = SteamFrameBuild.BufferDiscardsEnabled;
             }

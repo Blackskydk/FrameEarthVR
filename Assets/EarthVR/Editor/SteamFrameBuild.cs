@@ -20,6 +20,30 @@ namespace EarthVR.Editor
         /// foveation, render regions, symmetric projection and buffer discards.</summary>
         internal static bool ForcePerformanceFeatures => EditorPrefs.GetBool(ForcePerformanceKey, true);
 
+        private const string EyeTrackedFoveationMenu = "EarthVR/Steam Frame/Eye-Tracked Foveation";
+        private const string EyeTrackedFoveationKey = "EarthVR.SteamFrame.EyeTrackedFoveation";
+
+        /// <summary>Build-time foveation level handed to Valve's foveation
+        /// feature. 0.5 looked too aggressive on Steam Frame; the runtime value
+        /// in EarthVRSettings is applied over it once XR is running.</summary>
+        internal const float DefaultFoveationLevel = 0.25f;
+
+        /// <summary>Lets Valve's foveation feature move the sharp region with
+        /// the eyes instead of fixing it at the centre. Experimental: it
+        /// depends on the runtime exposing eye-tracked foveation.</summary>
+        internal static bool EyeTrackedFoveation => EditorPrefs.GetBool(EyeTrackedFoveationKey, true);
+
+        [MenuItem(EyeTrackedFoveationMenu, priority = 31)]
+        private static void ToggleEyeTrackedFoveation() =>
+            EditorPrefs.SetBool(EyeTrackedFoveationKey, !EyeTrackedFoveation);
+
+        [MenuItem(EyeTrackedFoveationMenu, true)]
+        private static bool ValidateEyeTrackedFoveation()
+        {
+            Menu.SetChecked(EyeTrackedFoveationMenu, EyeTrackedFoveation);
+            return true;
+        }
+
         [MenuItem(ForcePerformanceMenu, priority = 30)]
         private static void ToggleForcePerformanceFeatures() =>
             EditorPrefs.SetBool(ForcePerformanceKey, !ForcePerformanceFeatures);

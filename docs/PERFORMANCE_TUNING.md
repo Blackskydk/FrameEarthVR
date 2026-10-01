@@ -15,6 +15,7 @@ a default changed, the reason is given so it can be reverted.
 | Bloom | on | **off** | The pipeline is LDR and bloom's threshold is 1.1, so it adds several full-screen passes for almost no visible change. |
 | Sun shadows | on | on | Switch off to test their cost. |
 | Edge preload margin | n/a | 1.1 (was 1.2) | Headset-only extra camera that loads tiles just outside the view. |
+| Foveation level | n/a | 0.25 (was 0.5) | 0.5 looked too aggressive on Steam Frame. Higher is stronger; costs GPU time when lowered. |
 
 PC and headset share one URP asset and one quality level, so these are applied
 at startup from `EarthVRSettings` rather than baked into the asset. In the
@@ -64,10 +65,48 @@ Builds normally re-force foveation, render regions, symmetric projection and
 buffer discards every time. Unchecking the menu item keeps whatever Project
 Settings says. Re-check it to restore the previous behavior.
 
+What a headset screenshot of London showed: faint straight lines in a grid on
+the flat river surface, dashed rather than continuous, crossing where tile
+corners meet (so they read as "X" marks under perspective), and sitting in the
+sharp centre of the view rather than the periphery. Their brightness differs from
+the surrounding water by only about 15-18 levels out of 255, with both darker and
+lighter lines. That points at tile borders (hairline rasterization gaps and
+texture-edge differences between neighbouring tiles) rather than foveation, and
+it is the pattern a higher MSAA count or render scale would soften. Whether PC
+shows the same lines at the old MSAA 2 / scale 1.0 is the key comparison.
+
 If gaps persist in every configuration they are most likely inherent to Google's
 photogrammetry tiles at neighboring detail levels. Cesium already keeps parent
 tiles until their children are ready (`forbidHoles`), so the remaining
 options would be changes to what is drawn behind the tiles.
+
+## Foveation and eye tracking
+
+Fixed foveation keeps the sharp region at the centre of each eye, so a level
+that looks fine in the middle can look blocky in the periphery (stepped
+horizon, horizontally smeared trees at the edges). The level is applied at
+startup from `standaloneFoveationLevelOverride` (0-1, higher is stronger,
+negative leaves the build-time level alone). Lowering it costs GPU time.
+
+Eye-tracked foveation moves the sharp region with your gaze, so a tighter level
+costs nothing you can see. It is a build option: **EarthVR > Steam Frame >
+Eye-Tracked Foveation** (checked by default) sets Valve's `initialUseEyeTracking`.
+Whether it works depends on the Steam Frame runtime; the app only asks for it.
+If the sharp region still stays fixed, capture `adb logcat -s Unity` and the
+lines mentioning foveation or eye gaze.
+
+## Reading the performance panel
+
+Open the hand menu and press **PERFORMANCE OVERLAY**.
+
+- **CPU main / render thread / GPU** (ms): the side closest to the frame time is
+  the limit. GPU near the frame time means pixel or geometry bound (render
+  scale, MSAA, foveation, tile detail help). CPU main or render thread near it
+  means tile processing or draw submission is the limit, and render scale and
+  foveation will barely help. GPU shows `n/a` where the device has no GPU timer.
+- **Render**: MSAA and scale are the values written to the URP asset, not a
+  readback of what the GPU does. The eye texture size is the real check: it
+  should grow by the render scale on each axis.
 
 ## Not done
 

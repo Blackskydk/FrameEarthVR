@@ -801,6 +801,8 @@ namespace EarthVR.UI
                 return;
 
             _smoothedDelta = Mathf.Lerp(_smoothedDelta, Time.unscaledDeltaTime, 0.05f);
+            if (_showPerformance)
+                RuntimeQuality.SampleFrameTiming();
             if (Time.unscaledTime < _nextUiRefreshTime)
                 return;
             _nextUiRefreshTime = Time.unscaledTime + UiRefreshIntervalSeconds;
@@ -847,6 +849,7 @@ namespace EarthVR.UI
             builder.AppendLine($"Origin: {_originRebaser.DistanceFromOriginUnityMeters:N0} m  ·  rebases {_originRebaser.RebaseCount}");
             builder.AppendLine($"Managed+native allocated: {Profiler.GetTotalAllocatedMemoryLong() / (1024 * 1024):N0} MB");
             builder.AppendLine($"Tiles for view: {_earth.Tileset.ComputeLoadProgress():N0}%");
+            builder.AppendLine(RuntimeQuality.DescribeFrameTiming());
             builder.AppendLine(RuntimeQuality.Describe());
             builder.Append(_earth.StatusMessage);
             _diagnostics.text = builder.ToString();

@@ -230,8 +230,8 @@ namespace EarthVR.Editor
             if (typeName == "ValveOpenXRFoveatedRenderingFeature")
             {
                 SetBool(serialized, "applySettingsOnStartup", true);
-                SetFloat(serialized, "initialFoveationLevel", 0.5f);
-                SetBool(serialized, "initialUseEyeTracking", false);
+                SetFloat(serialized, "initialFoveationLevel", SteamFrameBuild.DefaultFoveationLevel);
+                SetBool(serialized, "initialUseEyeTracking", SteamFrameBuild.EyeTrackedFoveation);
             }
             else if (typeName == "ValveOpenXRRenderRegionsFeature")
             {

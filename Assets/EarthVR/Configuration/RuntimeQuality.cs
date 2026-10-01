@@ -79,8 +79,49 @@ namespace EarthVR.Configuration
             Debug.Log($"EarthVR foveation level set to {level:0.00}");
         }
 
+        private static readonly FrameTiming[] LatestTiming = new FrameTiming[1];
+        private static float _smoothedCpuMain;
+        private static float _smoothedCpuRender;
+        private static float _smoothedGpu;
+        private static bool _hasTiming;
+
+        /// <summary>Call once per frame while the performance panel is open.
+        /// Requires "Enable Frame Timing Stats" in Player Settings; the GPU
+        /// figure is 0 on devices without GPU timestamp support.</summary>
+        public static void SampleFrameTiming()
+        {
+            FrameTimingManager.CaptureFrameTimings();
+            if (FrameTimingManager.GetLatestTimings(1, LatestTiming) == 0)
+                return;
+            var timing = LatestTiming[0];
+            if (!_hasTiming)
+            {
+                _smoothedCpuMain = (float)timing.cpuMainThreadFrameTime;
+                _smoothedCpuRender = (float)timing.cpuRenderThreadFrameTime;
+                _smoothedGpu = (float)timing.gpuFrameTime;
+                _hasTiming = true;
+                return;
+            }
+            _smoothedCpuMain = Mathf.Lerp(_smoothedCpuMain, (float)timing.cpuMainThreadFrameTime, 0.05f);
+            _smoothedCpuRender = Mathf.Lerp(_smoothedCpuRender, (float)timing.cpuRenderThreadFrameTime, 0.05f);
+            _smoothedGpu = Mathf.Lerp(_smoothedGpu, (float)timing.gpuFrameTime, 0.05f);
+        }
+
+        /// <summary>Which side limits the frame: a GPU time near the frame
+        /// time means pixel/geometry bound; CPU main or render thread near it
+        /// means tile processing or draw submission bound.</summary>
+        public static string DescribeFrameTiming()
+        {
+            if (!_hasTiming)
+                return "Frame timing: unavailable";
+            var gpu = _smoothedGpu > 0.01f ? $"{_smoothedGpu:0.0}" : "n/a";
+            return $"CPU main {_smoothedCpuMain:0.0} · render thread {_smoothedCpuRender:0.0} · GPU {gpu} ms";
+        }
+
         /// <summary>One line for the in-headset performance panel showing what
-        /// the renderer is actually using, so overrides can be confirmed.</summary>
+        /// the renderer is actually using, so overrides can be confirmed. MSAA
+        /// and scale are the values written to the URP asset, not a readback of
+        /// what the GPU path does; the eye texture size is the real check.</summary>
         public static string Describe()
         {
             var pipeline = UniversalRenderPipeline.asset;

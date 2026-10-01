@@ -141,8 +141,8 @@ namespace EarthVR.Configuration
         public bool standaloneSunShadows = true;
         [Tooltip("Loading margin around the visible view for the headset-only terrain edge preload camera. Smaller loads fewer unseen tiles.")]
         [Range(1f, 1.5f)] public float standaloneEdgePreloadMargin = 1.1f;
-        [Tooltip("Foveation level (0-1) applied once XR is running. Negative keeps the build-time level (0.5) untouched.")]
-        [Range(-1f, 1f)] public float standaloneFoveationLevelOverride = -1f;
+        [Tooltip("Foveation level (0-1) applied once XR is running; higher is stronger. Negative leaves the build-time level untouched.")]
+        [Range(-1f, 1f)] public float standaloneFoveationLevelOverride = 0.25f;
 
         public bool BloomEnabled => Application.isMobilePlatform ? standaloneBloom : pcBloom;
         public bool SunShadowsEnabled => Application.isMobilePlatform ? standaloneSunShadows : pcSunShadows;

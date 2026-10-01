@@ -166,7 +166,18 @@ namespace EarthVR.Editor
 #if UNITY_6000_2_OR_NEWER
             openXr.useOpenXRPredictedTime = true;
 #endif
-            if (buildTargetGroup == BuildTargetGroup.Android)
+            // Builds re-apply these every time. With the build menu's
+            // "Force Performance Features" unchecked, whatever is set in Project
+            // Settings is kept so each can be switched off to isolate artifacts.
+            var forceAndroidPerformance = buildTargetGroup != BuildTargetGroup.Android ||
+                                          SteamFrameBuild.ForcePerformanceFeatures;
+            if (buildTargetGroup == BuildTargetGroup.Android && !forceAndroidPerformance)
+            {
+                Debug.Log(
+                    "EarthVR: keeping the Android OpenXR performance features (foveation, render regions, " +
+                    "symmetric projection, buffer discards) exactly as set in Project Settings.");
+            }
+            if (buildTargetGroup == BuildTargetGroup.Android && forceAndroidPerformance)
             {
                 openXr.symmetricProjection = true;
 #if UNITY_6000_1_OR_NEWER
@@ -189,6 +200,7 @@ namespace EarthVR.Editor
                 var isDesktopController = buildTargetGroup == BuildTargetGroup.Standalone &&
                     (typeName == "ValveIndexControllerProfile" || typeName == "HTCViveControllerProfile");
                 var isAndroidPerformanceFeature = buildTargetGroup == BuildTargetGroup.Android &&
+                    forceAndroidPerformance &&
                     (typeName == "FoveatedRenderingFeature" ||
                      typeName == "ValveOpenXRFoveatedRenderingFeature" ||
                      typeName == "ValveOpenXRRenderRegionsFeature" ||

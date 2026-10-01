@@ -448,7 +448,9 @@ namespace EarthVR.Sky
                 new Color(1f, 0.20f, 0.055f),
                 new Color(1f, 0.97f, 0.88f),
                 highSun);
-            _sunLight.shadows = daylight > 0.04f ? LightShadows.Soft : LightShadows.None;
+            _sunLight.shadows = _settings.SunShadowsEnabled && daylight > 0.04f
+                ? LightShadows.Soft
+                : LightShadows.None;
 
             _moonLight.transform.rotation = Quaternion.LookRotation(-moonDirection, Vector3.up);
             _moonLight.intensity = 0.075f * night;
@@ -543,6 +545,11 @@ namespace EarthVR.Sky
             _colorAdjustments.colorFilter.Override(Color.white);
             _colorAdjustments.saturation.Override(0f);
             _colorAdjustments.contrast.Override(0f);
+            // Bloom is skipped when disabled (headset default): in this LDR
+            // pipeline its 1.1 threshold is above the brightest output, so it
+            // costs several full-screen passes for almost no visible change.
+            if (!_settings.BloomEnabled)
+                return;
             _bloom = _volumeProfile.Add<Bloom>(true);
             _bloom.threshold.Override(1.1f);
             _bloom.intensity.Override(0.25f);

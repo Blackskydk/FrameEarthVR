@@ -109,9 +109,9 @@ namespace EarthVR.Configuration
         [Header("Tiles")]
         [Tooltip("Try Google Photorealistic 3D Tiles before the Cesium terrain fallback. Disable while Google root requests are quota-limited.")]
         public bool preferGooglePhotorealisticTiles = true;
-        [Min(1f)] public float pcMaximumScreenSpaceError = 6f;
+        [Min(1f)] public float pcMaximumScreenSpaceError = 4f;
         [Min(1f)] public float standaloneMaximumScreenSpaceError = 6f;
-        [Min(64)] public int pcCacheMegabytes = 3072;
+        [Min(64)] public int pcCacheMegabytes = 4096;
         [Min(64)] public int standaloneCacheMegabytes = 1536;
         [Min(1)] public int maximumSimultaneousTileLoads = 20;
         public bool createPhysicsMeshes = true;
@@ -128,10 +128,42 @@ namespace EarthVR.Configuration
         [Min(0.5f)] public float horizonFogEndFraction = 1.04f;
 
         [Header("Platform quality profiles")]
-        [Range(0.5f, 2f)] public float pcRenderScale = 1f;
+        [Tooltip("MSAA and render scale are written to the URP asset at startup (see RuntimeQuality).")]
+        [Range(0.5f, 2f)] public float pcRenderScale = 1.25f;
         [Range(0.5f, 1.5f)] public float standaloneRenderScale = 1f;
-        [Range(0, 8)] public int pcMsaa = 2;
+        [Range(0, 8)] public int pcMsaa = 4;
         [Range(0, 4)] public int standaloneMsaa = 2;
+        [Tooltip("Bloom needs HDR to do much; this pipeline is LDR, so it costs several full-screen passes for almost no visible change.")]
+        public bool pcBloom = true;
+        public bool standaloneBloom = false;
+        [Tooltip("Daytime dynamic sun shadows near the viewer. Photoreal tiles already carry baked shadows.")]
+        public bool pcSunShadows = true;
+        public bool standaloneSunShadows = true;
+        [Tooltip("Loading margin around the visible view for the headset-only terrain edge preload camera. Smaller loads fewer unseen tiles.")]
+        [Range(1f, 1.5f)] public float standaloneEdgePreloadMargin = 1.1f;
+        [Tooltip("Foveation level (0-1) applied once XR is running. Negative keeps the build-time level (0.5) untouched.")]
+        [Range(-1f, 1f)] public float standaloneFoveationLevelOverride = -1f;
+
+        public bool BloomEnabled => Application.isMobilePlatform ? standaloneBloom : pcBloom;
+        public bool SunShadowsEnabled => Application.isMobilePlatform ? standaloneSunShadows : pcSunShadows;
+
+        /// <summary>Keeps values read from the on-device override file inside
+        /// ranges the renderer and tile streamer can safely use.</summary>
+        public void ClampToSafeRanges()
+        {
+            pcMaximumScreenSpaceError = Mathf.Max(1f, pcMaximumScreenSpaceError);
+            standaloneMaximumScreenSpaceError = Mathf.Max(1f, standaloneMaximumScreenSpaceError);
+            pcCacheMegabytes = Mathf.Max(64, pcCacheMegabytes);
+            standaloneCacheMegabytes = Mathf.Max(64, standaloneCacheMegabytes);
+            maximumSimultaneousTileLoads = Mathf.Max(1, maximumSimultaneousTileLoads);
+            humanNearClipMeters = Mathf.Max(0.001f, humanNearClipMeters);
+            pcRenderScale = Mathf.Clamp(pcRenderScale, 0.5f, 2f);
+            standaloneRenderScale = Mathf.Clamp(standaloneRenderScale, 0.5f, 1.5f);
+            pcMsaa = Mathf.Clamp(pcMsaa, 0, 8);
+            standaloneMsaa = Mathf.Clamp(standaloneMsaa, 0, 4);
+            standaloneEdgePreloadMargin = Mathf.Clamp(standaloneEdgePreloadMargin, 1f, 1.5f);
+            standaloneFoveationLevelOverride = Mathf.Clamp(standaloneFoveationLevelOverride, -1f, 1f);
+        }
 
         public static EarthVRSettings CreateRuntimeDefaults()
         {

@@ -85,9 +85,9 @@ MonoBehaviour:
   globeOverviewMaximumLabels: 28
   globeOverviewLabelSeparation: 0.055
   preferGooglePhotorealisticTiles: 1
-  pcMaximumScreenSpaceError: 6
+  pcMaximumScreenSpaceError: 4
   standaloneMaximumScreenSpaceError: 6
-  pcCacheMegabytes: 3072
+  pcCacheMegabytes: 4096
   standaloneCacheMegabytes: 1536
   maximumSimultaneousTileLoads: 20
   createPhysicsMeshes: 1
@@ -97,7 +97,13 @@ MonoBehaviour:
   horizonFogStartAltitudeMeters: 10000
   horizonFogStartFraction: 0.72
   horizonFogEndFraction: 1.04
-  pcRenderScale: 1
+  pcRenderScale: 1.25
   standaloneRenderScale: 1
-  pcMsaa: 2
+  pcMsaa: 4
   standaloneMsaa: 2
+  pcBloom: 1
+  standaloneBloom: 0
+  pcSunShadows: 1
+  standaloneSunShadows: 1
+  standaloneEdgePreloadMargin: 1.1
+  standaloneFoveationLevelOverride: -1

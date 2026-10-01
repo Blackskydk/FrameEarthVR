@@ -13,6 +13,24 @@ namespace EarthVR.Editor
         private const string ScenePath = "Assets/EarthVR/Scenes/EarthVR.unity";
         private const string OutputPath = "Builds/SteamFrame/FrameEarthVR.apk";
 
+        private const string ForcePerformanceMenu = "EarthVR/Steam Frame/Force Performance Features On Build";
+        private const string ForcePerformanceKey = "EarthVR.SteamFrame.ForcePerformanceFeatures";
+
+        /// <summary>When true (the default) every Android build re-applies
+        /// foveation, render regions, symmetric projection and buffer discards.</summary>
+        internal static bool ForcePerformanceFeatures => EditorPrefs.GetBool(ForcePerformanceKey, true);
+
+        [MenuItem(ForcePerformanceMenu, priority = 30)]
+        private static void ToggleForcePerformanceFeatures() =>
+            EditorPrefs.SetBool(ForcePerformanceKey, !ForcePerformanceFeatures);
+
+        [MenuItem(ForcePerformanceMenu, true)]
+        private static bool ValidateForcePerformanceFeatures()
+        {
+            Menu.SetChecked(ForcePerformanceMenu, ForcePerformanceFeatures);
+            return true;
+        }
+
         [MenuItem("EarthVR/Steam Frame/Configure Android", priority = 20)]
         public static void ConfigureAndroid()
         {

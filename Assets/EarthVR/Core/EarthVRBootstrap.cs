@@ -43,13 +43,15 @@ namespace EarthVR.Core
                 ? Instantiate(settingsAsset)
                 : EarthVRSettings.CreateRuntimeDefaults();
             settings.hideFlags = HideFlags.DontSave;
+            SettingsOverrides.TryApplyFromDisk(settings);
             SelectStartingPlace(settings);
 
             Application.targetFrameRate = 90;
             QualitySettings.vSyncCount = 0;
             QualitySettings.maxQueuedFrames = 1;
-            QualitySettings.antiAliasing = Application.isMobilePlatform ? settings.standaloneMsaa : settings.pcMsaa;
-            XRSettings.eyeTextureResolutionScale = Application.isMobilePlatform ? settings.standaloneRenderScale : settings.pcRenderScale;
+            RuntimeQuality.Apply(settings);
+            if (Application.isMobilePlatform)
+                StartCoroutine(RuntimeQuality.ApplyFoveationLevel(settings.standaloneFoveationLevelOverride));
 #if UNITY_6000_2_OR_NEWER
             if (OpenXRSettings.Instance != null)
                 OpenXRSettings.Instance.useOpenXRPredictedTime = true;

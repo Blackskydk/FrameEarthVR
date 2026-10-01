@@ -81,6 +81,8 @@ Use the development APK with Unity Profiler and Android logcat. Check GPU frame 
 
 No desktop or emulator result proves headset performance. Foveation and multiview render regions also need validation on the actual Steam Frame runtime.
 
+See [Performance tuning and tile-seam troubleshooting](PERFORMANCE_TUNING.md) for the per-platform quality profile, the on-device `settings-override.json`, and a test plan for visible gaps between tiles.
+
 ## Credentials
 
 Files under `Assets/StreamingAssets` are copied into the APK and can be extracted. Use a narrowly scoped Cesium ion token, never a general account token, for any build installed or shared outside your own headset.

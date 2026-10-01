@@ -45,6 +45,54 @@ namespace EarthVR.Editor
             return true;
         }
 
+        // Each Android-only OpenXR optimization can be switched off for a build to
+        // find which one causes an artifact. All default to on (current behavior).
+        private const string FeatureMenuRoot = "EarthVR/Steam Frame/Android Features/";
+        private const string FoveationMenu = FeatureMenuRoot + "Foveated Rendering";
+        private const string RenderRegionsMenu = FeatureMenuRoot + "Render Regions + Symmetric Projection";
+        private const string BufferDiscardsMenu = FeatureMenuRoot + "Buffer Discards";
+        private const string LateLatchingMenu = FeatureMenuRoot + "Late Latching";
+
+        private static bool GetFeature(string key) => EditorPrefs.GetBool("EarthVR.SteamFrame.Feature." + key, true);
+        private static void ToggleFeature(string key) => EditorPrefs.SetBool("EarthVR.SteamFrame.Feature." + key, !GetFeature(key));
+        private static bool CheckFeature(string menu, string key)
+        {
+            Menu.SetChecked(menu, GetFeature(key));
+            return true;
+        }
+
+        internal static bool FoveatedRenderingEnabled => GetFeature("Foveation");
+        internal static bool RenderRegionsEnabled => GetFeature("RenderRegions");
+        internal static bool BufferDiscardsEnabled => GetFeature("BufferDiscards");
+        internal static bool LateLatchingEnabled => GetFeature("LateLatching");
+
+        [MenuItem(FoveationMenu, priority = 40)]
+        private static void ToggleFoveation() => ToggleFeature("Foveation");
+        [MenuItem(FoveationMenu, true)]
+        private static bool ValidateFoveation() => CheckFeature(FoveationMenu, "Foveation");
+
+        [MenuItem(RenderRegionsMenu, priority = 41)]
+        private static void ToggleRenderRegions() => ToggleFeature("RenderRegions");
+        [MenuItem(RenderRegionsMenu, true)]
+        private static bool ValidateRenderRegions() => CheckFeature(RenderRegionsMenu, "RenderRegions");
+
+        [MenuItem(BufferDiscardsMenu, priority = 42)]
+        private static void ToggleBufferDiscards() => ToggleFeature("BufferDiscards");
+        [MenuItem(BufferDiscardsMenu, true)]
+        private static bool ValidateBufferDiscards() => CheckFeature(BufferDiscardsMenu, "BufferDiscards");
+
+        [MenuItem(LateLatchingMenu, priority = 43)]
+        private static void ToggleLateLatching() => ToggleFeature("LateLatching");
+        [MenuItem(LateLatchingMenu, true)]
+        private static bool ValidateLateLatching() => CheckFeature(LateLatchingMenu, "LateLatching");
+
+        /// <summary>Short code shown in the in-game panel so a headset build can be
+        /// identified: F foveation, R render regions + symmetric projection,
+        /// B buffer discards, L late latching, E eye-tracked foveation (1 = on).</summary>
+        internal static string FeatureTag() =>
+            $"F{(FoveatedRenderingEnabled ? 1 : 0)}R{(RenderRegionsEnabled ? 1 : 0)}" +
+            $"B{(BufferDiscardsEnabled ? 1 : 0)}L{(LateLatchingEnabled ? 1 : 0)}E{(EyeTrackedFoveation ? 1 : 0)}";
+
         [MenuItem(ForcePerformanceMenu, priority = 30)]
         private static void ToggleForcePerformanceFeatures() =>
             EditorPrefs.SetBool(ForcePerformanceKey, !ForcePerformanceFeatures);
@@ -132,7 +180,9 @@ namespace EarthVR.Editor
             }
 
             ConfigureAndroid();
-            PlayerSettings.bundleVersion = EarthVR.Core.ReleaseBuildStamp.Version;
+            PlayerSettings.bundleVersion = development
+                ? EarthVR.Core.ReleaseBuildStamp.Version + "+" + FeatureTag()
+                : EarthVR.Core.ReleaseBuildStamp.Version;
             PlayerSettings.Android.bundleVersionCode = EarthVR.Core.ReleaseBuildStamp.AndroidVersionCode;
             if (!HasSteamFrameControllerProfile())
             {

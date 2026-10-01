@@ -179,15 +179,19 @@ namespace EarthVR.Editor
             }
             if (buildTargetGroup == BuildTargetGroup.Android && forceAndroidPerformance)
             {
-                openXr.symmetricProjection = true;
+                Debug.Log("EarthVR Android features: " + SteamFrameBuild.FeatureTag() +
+                          " (F foveation, R render regions + symmetric projection, B buffer discards, " +
+                          "L late latching, E eye-tracked foveation)");
+                openXr.symmetricProjection = SteamFrameBuild.RenderRegionsEnabled;
 #if UNITY_6000_1_OR_NEWER
-                openXr.multiviewRenderRegionsOptimizationMode =
-                    OpenXRSettings.MultiviewRenderRegionsOptimizationMode.AllPasses;
+                openXr.multiviewRenderRegionsOptimizationMode = SteamFrameBuild.RenderRegionsEnabled
+                    ? OpenXRSettings.MultiviewRenderRegionsOptimizationMode.AllPasses
+                    : OpenXRSettings.MultiviewRenderRegionsOptimizationMode.None;
 #endif
 #if UNITY_2023_2_OR_NEWER
                 openXr.foveatedRenderingApi = OpenXRSettings.BackendFovationApi.SRPFoveation;
 #endif
-                openXr.optimizeBufferDiscards = true;
+                openXr.optimizeBufferDiscards = SteamFrameBuild.BufferDiscardsEnabled;
             }
             EditorUtility.SetDirty(openXr);
             foreach (var feature in openXr.GetFeatures())
@@ -215,14 +219,23 @@ namespace EarthVR.Editor
                 }
                 else if (isCommonController || isDesktopController || isAndroidPerformanceFeature)
                 {
-                    feature.enabled = true;
-                    if (buildTargetGroup == BuildTargetGroup.Android)
+                    var enable = !isAndroidPerformanceFeature || AndroidFeatureSwitchedOn(typeName);
+                    feature.enabled = enable;
+                    if (enable && buildTargetGroup == BuildTargetGroup.Android)
                         ConfigureValveFeature(feature, typeName);
                     EditorUtility.SetDirty(feature);
                 }
             }
             return assigned;
         }
+
+        private static bool AndroidFeatureSwitchedOn(string typeName) => typeName switch
+        {
+            "FoveatedRenderingFeature" => SteamFrameBuild.FoveatedRenderingEnabled,
+            "ValveOpenXRFoveatedRenderingFeature" => SteamFrameBuild.FoveatedRenderingEnabled,
+            "ValveOpenXRRenderRegionsFeature" => SteamFrameBuild.RenderRegionsEnabled,
+            _ => true
+        };
 
         private static void ConfigureValveFeature(Object feature, string typeName)
         {
@@ -240,8 +253,8 @@ namespace EarthVR.Editor
             }
             else if (typeName == "ValveOpenXRSupportFeature")
             {
-                SetBool(serialized, "optimizeBufferDiscards", true);
-                SetBool(serialized, "lateLatchingMode", true);
+                SetBool(serialized, "optimizeBufferDiscards", SteamFrameBuild.BufferDiscardsEnabled);
+                SetBool(serialized, "lateLatchingMode", SteamFrameBuild.LateLatchingEnabled);
                 SetBool(serialized, "lateLatchingDebug", false);
             }
             serialized.ApplyModifiedPropertiesWithoutUndo();

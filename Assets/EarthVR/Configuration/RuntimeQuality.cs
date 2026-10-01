@@ -115,7 +115,7 @@ namespace EarthVR.Configuration
             if (!_hasTiming)
                 return "Frame timing: unavailable";
             var gpu = _smoothedGpu > 0.01f ? $"{_smoothedGpu:0.0}" : "n/a";
-            return $"CPU main {_smoothedCpuMain:0.0} · render thread {_smoothedCpuRender:0.0} · GPU {gpu} ms";
+            return $"CPU {_smoothedCpuMain:0.0} · render {_smoothedCpuRender:0.0} · GPU {gpu} ms";
         }
 
         /// <summary>Bit depth of the XR eye depth buffer (16/24/32). Fixed-point
@@ -135,12 +135,12 @@ namespace EarthVR.Configuration
             var pipeline = UniversalRenderPipeline.asset;
             var msaa = pipeline != null ? pipeline.msaaSampleCount : QualitySettings.antiAliasing;
             var scale = pipeline != null ? pipeline.renderScale : XRSettings.eyeTextureResolutionScale;
-            var text = $"Render: MSAA {msaa}x · scale {scale:0.00} · eye {XRSettings.eyeTextureWidth}x{XRSettings.eyeTextureHeight}";
+            var text = $"MSAA {msaa}x · scale {scale:0.00} · eye {XRSettings.eyeTextureWidth}x{XRSettings.eyeTextureHeight}";
 
             var displays = new List<XRDisplaySubsystem>();
             SubsystemManager.GetSubsystems(displays);
             if (displays.Count > 0 && displays[0].running)
-                text += $" · foveation {displays[0].foveatedRenderingLevel:0.00}";
+                text += $" · fov {displays[0].foveatedRenderingLevel:0.00}";
             return text;
         }
 

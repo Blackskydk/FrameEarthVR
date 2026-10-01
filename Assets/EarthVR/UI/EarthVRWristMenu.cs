@@ -842,22 +842,24 @@ namespace EarthVR.UI
 
             var llh = _navigation.LongitudeLatitudeHeight;
             var builder = new StringBuilder();
-            builder.AppendLine($"FPS: {1f / Mathf.Max(0.0001f, _smoothedDelta):N0}");
-            builder.AppendLine($"Frame: {_smoothedDelta * 1000f:N1} ms");
-            builder.AppendLine($"Altitude: {_navigation.AltitudeMeters:N0} m ellipsoid");
-            builder.AppendLine($"Lon/Lat: {llh.x:F5}, {llh.y:F5}");
-            builder.AppendLine($"Origin: {_originRebaser.DistanceFromOriginUnityMeters:N0} m  ·  rebases {_originRebaser.RebaseCount}");
-            builder.AppendLine($"Managed+native allocated: {Profiler.GetTotalAllocatedMemoryLong() / (1024 * 1024):N0} MB");
-            builder.AppendLine($"Tiles for view: {_earth.Tileset.ComputeLoadProgress():N0}%");
+            var userScale = _navigation.UserScale;
+            // Compact on purpose: the diagnostics card fits about ten lines.
+            builder.AppendLine(
+                $"FPS {1f / Mathf.Max(0.0001f, _smoothedDelta):N0} · {_smoothedDelta * 1000f:N1} ms · " +
+                $"tiles {_earth.Tileset.ComputeLoadProgress():N0}%");
             builder.AppendLine(RuntimeQuality.DescribeFrameTiming());
             builder.AppendLine(RuntimeQuality.Describe());
             // Depth precision at distance is roughly distance^2 / (near * 2^bits),
             // so near/far in geographic metres and the depth bits explain
             // shimmering lines where two surfaces overlap.
-            var userScale = _navigation.UserScale;
             builder.AppendLine(
-                $"Clip: near {_rig.Camera.nearClipPlane * userScale:0.00} m · far {_rig.Camera.farClipPlane * userScale:N0} m · " +
-                $"user scale {userScale:N1}x · {RuntimeQuality.DescribeDepth()}");
+                $"Clip {_rig.Camera.nearClipPlane * userScale:0.00}-{_rig.Camera.farClipPlane * userScale:N0} m · " +
+                $"scale {userScale:N1}x · {RuntimeQuality.DescribeDepth()}");
+            builder.AppendLine($"Alt {_navigation.AltitudeMeters:N0} m · {llh.x:F4}, {llh.y:F4}");
+            builder.AppendLine(
+                $"Origin {_originRebaser.DistanceFromOriginUnityMeters:N0} m · rebases {_originRebaser.RebaseCount} · " +
+                $"mem {Profiler.GetTotalAllocatedMemoryLong() / (1024 * 1024):N0} MB");
+            builder.AppendLine($"Build {Application.version}");
             builder.Append(_earth.StatusMessage);
             _diagnostics.text = builder.ToString();
         }

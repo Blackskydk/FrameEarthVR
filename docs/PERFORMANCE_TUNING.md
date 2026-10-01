@@ -138,6 +138,31 @@ Open the hand menu and press **PERFORMANCE OVERLAY**.
   readback of what the GPU does. The eye texture size is the real check: it
   should grow by the render scale on each axis.
 
+## Bisecting the headset-only blur and lines
+
+PC shows neither the blur nor the same lines, so the cause is among the
+Android-only OpenXR optimizations. Each is now a build switch under
+**EarthVR > Steam Frame > Android Features** (all checked by default, which is the
+previous behavior): Foveated Rendering, Render Regions + Symmetric Projection,
+Buffer Discards, Late Latching. Eye-tracked foveation is a separate item in the
+Steam Frame menu.
+
+Change one, run **Build Development APK**, and read the **Build** line in the
+performance panel. It ends in a tag such as `+F1R0B1L1E0` (F foveation,
+R render regions + symmetric projection, B buffer discards, L late latching,
+E eye-tracked foveation; 1 = on), so you can always tell which build is installed.
+The same tag is logged in `Logs/SteamFrameBuild.log`.
+
+Suggested order:
+
+1. Uncheck **Render Regions + Symmetric Projection** only. If the blur becomes
+   centred, those two were misplacing the foveation map.
+2. If it is still offset, uncheck **Foveated Rendering** to confirm foveation is the
+   source, and compare frame time.
+3. Check the lines in each build; Buffer Discards is the next suspect for them.
+
+The panel's lines are short on purpose: the card fits about ten.
+
 ## Not done
 
 - Baking the day/night colour grade into a custom tile shader (avoids the

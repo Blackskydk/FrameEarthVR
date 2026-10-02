@@ -44,6 +44,45 @@ namespace EarthVR.Configuration
             XRSettings.eyeTextureResolutionScale = scale;
         }
 
+        public static int CurrentMsaa
+        {
+            get
+            {
+                var pipeline = UniversalRenderPipeline.asset;
+                return pipeline != null ? pipeline.msaaSampleCount : Mathf.Max(1, QualitySettings.antiAliasing);
+            }
+        }
+
+        /// <summary>Changes MSAA while running (for in-headset A/B testing).</summary>
+        public static void SetMsaa(int samples)
+        {
+            var msaa = NormalizeMsaa(samples);
+            var pipeline = UniversalRenderPipeline.asset;
+            if (pipeline != null)
+            {
+                RememberEditorValues(pipeline);
+                pipeline.msaaSampleCount = msaa;
+            }
+            QualitySettings.antiAliasing = msaa > 1 ? msaa : 0;
+            SessionLog.Info($"EarthVR MSAA set to {msaa}x");
+        }
+
+        /// <summary>The foveation level now in effect, or -1 when no XR display is running.</summary>
+        public static float CurrentFoveationLevel()
+        {
+            var displays = new List<XRDisplaySubsystem>();
+            SubsystemManager.GetSubsystems(displays);
+            return displays.Count > 0 && displays[0].running ? displays[0].foveatedRenderingLevel : -1f;
+        }
+
+        /// <summary>Changes the foveation level while running (for in-headset A/B testing).</summary>
+        public static void SetFoveationLevelNow(float level)
+        {
+            var displays = new List<XRDisplaySubsystem>();
+            SubsystemManager.GetSubsystems(displays);
+            SetFoveationLevel(displays, Mathf.Clamp01(level));
+        }
+
         /// <summary>Applies an optional foveation level after the XR display
         /// is running. Valve's startup feature sets the build-time level (0.5)
         /// itself, so a negative level leaves that untouched. The level is

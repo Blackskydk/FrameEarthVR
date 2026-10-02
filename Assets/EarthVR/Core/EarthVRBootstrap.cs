@@ -158,6 +158,7 @@ namespace EarthVR.Core
             credentialSetup.Initialize(rig, input, earth, navigation, scaling);
             menu.SetCredentialSetup(credentialSetup);
             menu.SetUpdateChecker(gameObject.AddComponent<ReleaseUpdateChecker>());
+            menu.SetSunSky(sunAndSky);
 
             if (settings.testStartEnabled)
                 StartCoroutine(RunTestStart(settings, earth, sunAndSky, arrival));

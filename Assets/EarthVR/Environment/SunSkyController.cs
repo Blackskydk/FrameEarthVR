@@ -16,6 +16,15 @@ namespace EarthVR.Sky
         public void Configure(bool representsMoon) => RepresentsMoon = representsMoon;
     }
 
+    /// <summary>How the sun's shadow pass is chosen. Auto draws shadows only at or below
+    /// the settings' sunShadowMaxUserScale; On and Off force it either way.</summary>
+    public enum SunShadowPreference
+    {
+        Auto,
+        On,
+        Off
+    }
+
     [DefaultExecutionOrder(-100)]
     public sealed class SunSkyController : MonoBehaviour
     {
@@ -29,6 +38,23 @@ namespace EarthVR.Sky
         private NavigationController _navigation;
         private Light _sunLight;
         private float _lastDaylight;
+        private bool _flatTileLighting;
+
+        public SunShadowPreference ShadowPreference { get; set; } = SunShadowPreference.Auto;
+
+        /// <summary>Lights tiles with a flat ambient only (no sun shading or shadows).
+        /// Starts from the settings; can be changed live.</summary>
+        public bool FlatTileLighting
+        {
+            get => _flatTileLighting;
+            set
+            {
+                if (_flatTileLighting == value)
+                    return;
+                _flatTileLighting = value;
+                ApplyEnvironment();
+            }
+        }
         private Light _moonLight;
         private Material _skyMaterial;
         private Material _sunMaterial;
@@ -75,6 +101,7 @@ namespace EarthVR.Sky
         {
             _input = input;
             _settings = settings;
+            _flatTileLighting = settings.FlatTileLightingEnabled;
             _rig = rig;
             _navigation = navigation;
             // Start new sessions in useful daylight instead of inheriting the
@@ -427,16 +454,28 @@ namespace EarthVR.Sky
             _utcTime = _solarPathTimes[bestIndex];
         }
 
-        private LightShadows SunShadowMode(float daylight) =>
-            _settings.SunShadowsEnabled && daylight > 0.04f && _navigation.UserScale <= _settings.sunShadowMaxUserScale
-                ? LightShadows.Soft
-                : LightShadows.None;
+        private LightShadows SunShadowMode(float daylight)
+        {
+            if (_flatTileLighting || daylight <= 0.04f)
+                return LightShadows.None;
+            switch (ShadowPreference)
+            {
+                case SunShadowPreference.On:
+                    return LightShadows.Soft;
+                case SunShadowPreference.Off:
+                    return LightShadows.None;
+                default:
+                    return _settings.SunShadowsEnabled && _navigation.UserScale <= _settings.sunShadowMaxUserScale
+                        ? LightShadows.Soft
+                        : LightShadows.None;
+            }
+        }
 
         /// <summary>User scale changes continuously, so re-evaluate whether the sun's
         /// shadow pass is worth drawing (it redraws every tile) each frame.</summary>
         private void UpdateShadowsForScale()
         {
-            if (_sunLight == null || _settings.FlatTileLightingEnabled)
+            if (_sunLight == null)
                 return;
             var wanted = SunShadowMode(_lastDaylight);
             if (_sunLight.shadows != wanted)
@@ -483,7 +522,7 @@ namespace EarthVR.Sky
             RenderSettings.reflectionIntensity = Mathf.Lerp(0.04f, 1f, daylight);
             RenderSettings.sun = _sunLight;
 
-            if (_settings.FlatTileLightingEnabled)
+            if (_flatTileLighting)
             {
                 // Flat, direction-free ambient only: tiles show their own baked
                 // lighting instead of being re-lit by the sun (no facet shading,

@@ -34,6 +34,23 @@ Each run starts at the same place but the user then moves. Try to do the same th
 (look at the tower, then the Thames) and avoid pushing the stick while looking up, which grows you
 (grounded scaling) and changes what is rendered; the report records your scale and altitude.
 
+## Testing in the headset: TEST TOGGLES
+
+Open the hand menu (left View/menu button) and press the round **TEST TOGGLES** button above the
+Flight/Grounded button. The page has four switches that take effect immediately, plus a live readout
+(FPS, frame time, CPU, triangle/draw counts, your scale and altitude):
+
+- **SUN SHADOWS: AUTO / ON / OFF.** AUTO draws shadows only at user scale 4x or below (the setting
+  `sunShadowMaxUserScale`); ON forces them at any scale, OFF never draws them.
+- **FLAT TILE LIGHTING: ON / OFF.** Flat ambient light only (no sun shading or shadows).
+- **FOVEATION:** cycles OFF, 0.15, 0.25, 0.50.
+- **MSAA:** cycles OFF, 2x, 4x. This changes render targets while running; if the game ever crashes or
+  flickers when pressing it, note which value you switched to.
+
+Because the headset warms up over a session, compare settings back to back in the same place rather than
+across separate runs: stay put, press one toggle, wait about ten seconds for the numbers to settle, read them,
+press it again. Each change is also written to the session log. Toggles are not remembered between launches.
+
 ## What is applied where
 
 | Setting | PC | Steam Frame (Android) | Notes |

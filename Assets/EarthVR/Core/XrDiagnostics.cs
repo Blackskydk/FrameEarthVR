@@ -22,7 +22,7 @@ namespace EarthVR.Core
         private static ProfilerRecorder _drawCalls;
         private static ProfilerRecorder _batches;
 
-        private static string DescribeRenderStats() => _triangles.Valid
+        public static string DescribeRenderStats() => _triangles.Valid
             ? $"tris {_triangles.LastValue / 1000}k draws {_drawCalls.LastValue} batches {_batches.LastValue}"
             : "render stats n/a";
 

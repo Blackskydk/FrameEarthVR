@@ -6,6 +6,7 @@ using EarthVR.Core;
 using EarthVR.Input;
 using EarthVR.Navigation;
 using EarthVR.Scaling;
+using EarthVR.Sky;
 using EarthVR.Terrain;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -70,6 +71,20 @@ namespace EarthVR.UI
         private GameObject _mainPanel;
         private GameObject _searchPanel;
         private GameObject _placesPanel;
+        private GameObject _testPanel;
+        private SunSkyController _sunAndSky;
+        private WorldSpaceButton _testButton;
+        private WorldSpaceButton _shadowButton;
+        private WorldSpaceButton _flatLightButton;
+        private WorldSpaceButton _foveationButton;
+        private WorldSpaceButton _msaaButton;
+        private Text _shadowLabel;
+        private Text _flatLightLabel;
+        private Text _foveationLabel;
+        private Text _msaaLabel;
+        private Text _testStatus;
+        private static readonly float[] FoveationSteps = { 0f, 0.15f, 0.25f, 0.5f };
+        private static readonly int[] MsaaSteps = { 1, 2, 4 };
         private GameObject _keyboardPanel;
         private GameObject _resultsPanel;
         private GameObject _suggestionsPanel;
@@ -213,6 +228,7 @@ namespace EarthVR.UI
 
             CreateSearchPanel(canvasObject.transform);
             CreatePlacesPanel(canvasObject.transform);
+            CreateTestPanel(canvasObject.transform);
             _places.Changed += RefreshPlaces;
             SetOpen(false);
             _canvas.gameObject.SetActive(false);
@@ -241,6 +257,7 @@ namespace EarthVR.UI
             _mainPanel.SetActive(false);
             _searchPanel.SetActive(false);
             _placesPanel.SetActive(false);
+            _testPanel?.SetActive(false);
             SetPointedButton(null);
         }
 
@@ -325,6 +342,11 @@ namespace EarthVR.UI
             _menuButton = CreateRoundStateButton(parent, "OPEN\nMENU",
                 new Vector2(550f, -270f), () => SetOpen(!_isOpen), diameter,
                 out _menuButtonLabel);
+            _testButton = CreateRoundStateButton(parent, "TEST\nTOGGLES",
+                new Vector2(550f, 450f), ShowTest, diameter,
+                out var testButtonLabel);
+            testButtonLabel.text = "TEST\nTOGGLES";
+            _testButton.SetNormalColor(DisabledColor);
         }
 
         private void ToggleFavoriteCurrentView()
@@ -493,10 +515,125 @@ namespace EarthVR.UI
             }
         }
 
+        public void SetSunSky(SunSkyController sunAndSky) => _sunAndSky = sunAndSky;
+
+        private void CreateTestPanel(Transform parent)
+        {
+            _testPanel = CreatePanel(parent, BackgroundColor);
+            ConfigureMenuPanel(_testPanel);
+            var title = CreateText(_testPanel.transform, new Vector2(0f, 402f), new Vector2(560f, 54f), 30, TextAnchor.MiddleCenter);
+            title.text = "TEST TOGGLES";
+            title.fontStyle = FontStyle.Bold;
+            title.color = AccentColor;
+
+            var size = new Vector2(560f, 64f);
+            _shadowButton = CreateStateButton(_testPanel.transform, "Sun shadows", new Vector2(0f, 320f), CycleShadows, size, out _shadowLabel);
+            _flatLightButton = CreateStateButton(_testPanel.transform, "Flat tile lighting", new Vector2(0f, 240f), ToggleFlatLighting, size, out _flatLightLabel);
+            _foveationButton = CreateStateButton(_testPanel.transform, "Foveation", new Vector2(0f, 160f), CycleFoveation, size, out _foveationLabel);
+            _msaaButton = CreateStateButton(_testPanel.transform, "MSAA", new Vector2(0f, 80f), CycleMsaa, size, out _msaaLabel);
+            _testStatus = CreateText(_testPanel.transform, new Vector2(0f, -150f), new Vector2(540f, 340f), 20, TextAnchor.UpperLeft);
+            _testStatus.color = MutedTextColor;
+            CreateButton(_testPanel.transform, "Back to controls", new Vector2(0f, -400f), ShowMain, new Vector2(480f, 54f));
+        }
+
+        private void ShowTest()
+        {
+            _searchCancellation?.Cancel();
+            _keyboardProvider?.Hide();
+            _mainPanel.SetActive(false);
+            _searchPanel.SetActive(false);
+            _placesPanel.SetActive(false);
+            _testPanel.SetActive(true);
+            RefreshTestPanel();
+            _nextUiRefreshTime = 0f;
+        }
+
+        private void RefreshTestPanel()
+        {
+            if (_testPanel == null)
+                return;
+            var shadows = _sunAndSky != null ? _sunAndSky.ShadowPreference : SunShadowPreference.Auto;
+            _shadowLabel.text = "SUN SHADOWS: " + shadows.ToString().ToUpperInvariant();
+            _shadowButton.SetNormalColor(shadows == SunShadowPreference.Auto ? DisabledColor : EnabledColor);
+
+            var flat = _sunAndSky != null && _sunAndSky.FlatTileLighting;
+            _flatLightLabel.text = "FLAT TILE LIGHTING: " + (flat ? "ON" : "OFF");
+            _flatLightButton.SetNormalColor(flat ? EnabledColor : DisabledColor);
+
+            var level = RuntimeQuality.CurrentFoveationLevel();
+            _foveationLabel.text = "FOVEATION: " +
+                (level < 0f ? "n/a" : level <= 0.001f ? "OFF" : level.ToString("0.00"));
+            _foveationButton.SetNormalColor(level > 0.001f ? EnabledColor : DisabledColor);
+
+            var msaa = RuntimeQuality.CurrentMsaa;
+            _msaaLabel.text = "MSAA: " + (msaa <= 1 ? "OFF" : msaa + "x");
+            _msaaButton.SetNormalColor(msaa > 1 ? EnabledColor : DisabledColor);
+        }
+
+        private void UpdateTestStatus()
+        {
+            if (_testPanel == null || !_testPanel.activeSelf)
+                return;
+            var fps = 1f / Mathf.Max(0.0001f, _smoothedDelta);
+            _testStatus.text =
+                $"FPS {fps:N0} · {_smoothedDelta * 1000f:N1} ms\n" +
+                $"{RuntimeQuality.DescribeFrameTiming()}\n" +
+                $"{XrDiagnostics.DescribeRenderStats()}\n" +
+                $"Scale {_navigation.UserScale:N1}x · Alt {_navigation.AltitudeMeters:N0} m\n\n" +
+                "Change one toggle, then wait about ten seconds for the numbers to settle.";
+        }
+
+        private void CycleShadows()
+        {
+            if (_sunAndSky == null)
+                return;
+            _sunAndSky.ShadowPreference = (SunShadowPreference)(((int)_sunAndSky.ShadowPreference + 1) % 3);
+            SessionLog.Info($"EarthVR test toggle: sun shadows {_sunAndSky.ShadowPreference}");
+            RefreshTestPanel();
+        }
+
+        private void ToggleFlatLighting()
+        {
+            if (_sunAndSky == null)
+                return;
+            _sunAndSky.FlatTileLighting = !_sunAndSky.FlatTileLighting;
+            SessionLog.Info($"EarthVR test toggle: flat tile lighting {_sunAndSky.FlatTileLighting}");
+            RefreshTestPanel();
+        }
+
+        private void CycleFoveation()
+        {
+            var current = RuntimeQuality.CurrentFoveationLevel();
+            if (current < 0f)
+                return;
+            var nearest = 0;
+            for (var i = 1; i < FoveationSteps.Length; i++)
+            {
+                if (Mathf.Abs(FoveationSteps[i] - current) < Mathf.Abs(FoveationSteps[nearest] - current))
+                    nearest = i;
+            }
+            RuntimeQuality.SetFoveationLevelNow(FoveationSteps[(nearest + 1) % FoveationSteps.Length]);
+            RefreshTestPanel();
+        }
+
+        private void CycleMsaa()
+        {
+            var current = RuntimeQuality.CurrentMsaa;
+            var nearest = 0;
+            for (var i = 1; i < MsaaSteps.Length; i++)
+            {
+                if (Mathf.Abs(MsaaSteps[i] - current) < Mathf.Abs(MsaaSteps[nearest] - current))
+                    nearest = i;
+            }
+            RuntimeQuality.SetMsaa(MsaaSteps[(nearest + 1) % MsaaSteps.Length]);
+            RefreshTestPanel();
+        }
+
         private void ShowSearch()
         {
             _mainPanel.SetActive(false);
             _placesPanel.SetActive(false);
+            _testPanel?.SetActive(false);
             _searchPanel.SetActive(true);
             if (_keyboardProvider != null && _keyboardProvider.IsAvailable)
             {
@@ -518,6 +655,7 @@ namespace EarthVR.UI
             _keyboardProvider?.Hide();
             _searchPanel.SetActive(false);
             _placesPanel.SetActive(false);
+            _testPanel?.SetActive(false);
             _mainPanel.SetActive(true);
         }
 
@@ -527,6 +665,7 @@ namespace EarthVR.UI
             _keyboardProvider?.Hide();
             _mainPanel.SetActive(false);
             _searchPanel.SetActive(false);
+            _testPanel?.SetActive(false);
             _placesPanel.SetActive(true);
             RefreshPlaces();
         }
@@ -801,11 +940,12 @@ namespace EarthVR.UI
                 return;
 
             _smoothedDelta = Mathf.Lerp(_smoothedDelta, Time.unscaledDeltaTime, 0.05f);
-            if (_showPerformance)
+            if (_showPerformance || (_testPanel != null && _testPanel.activeSelf))
                 RuntimeQuality.SampleFrameTiming();
             if (Time.unscaledTime < _nextUiRefreshTime)
                 return;
             _nextUiRefreshTime = Time.unscaledTime + UiRefreshIntervalSeconds;
+            UpdateTestStatus();
 
             _modeBadge.text = _navigation.State.Mode switch
             {
@@ -880,6 +1020,7 @@ namespace EarthVR.UI
             FacePanel(_mainPanel);
             FacePanel(_searchPanel);
             FacePanel(_placesPanel);
+            FacePanel(_testPanel);
         }
 
         private void FacePanel(GameObject panel)

@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Globalization;
 using EarthVR.Configuration;
 using EarthVR.Sound;
 using EarthVR.Sky;
@@ -157,6 +159,9 @@ namespace EarthVR.Core
             menu.SetCredentialSetup(credentialSetup);
             menu.SetUpdateChecker(gameObject.AddComponent<ReleaseUpdateChecker>());
 
+            if (settings.testStartEnabled)
+                StartCoroutine(RunTestStart(settings, earth, sunAndSky, arrival));
+
             StartCoroutine(XrDiagnostics.LogPerformance(10f, () =>
             {
                 var llh = navigation.LongitudeLatitudeHeight;
@@ -166,8 +171,60 @@ namespace EarthVR.Core
             }));
         }
 
+        /// <summary>Arrives at the fixed test viewpoint through the normal loading-aware
+        /// arrival (fade, wait for tiles, reveal), in the chosen mode and at a fixed sun
+        /// time, so every test starts from the same view.</summary>
+        private IEnumerator RunTestStart(
+            EarthVRSettings settings,
+            CesiumEarthProvider earth,
+            SunSkyController sunAndSky,
+            LoadingAwareArrivalController arrival)
+        {
+            // Wait until Cesium is streaming so the arrival waits for real tiles.
+            var deadline = Time.unscaledTime + 90f;
+            while (earth.Tileset != null && earth.Tileset.suspendUpdate && Time.unscaledTime < deadline)
+                yield return null;
+            yield return new WaitForSecondsRealtime(1f);
+
+            if (!string.IsNullOrWhiteSpace(settings.testStartUtc) &&
+                DateTime.TryParse(
+                    settings.testStartUtc,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
+                    out var utc))
+            {
+                sunAndSky.SetUtcTime(utc);
+            }
+
+            var place = new SavedPlace
+            {
+                name = settings.testStartName,
+                longitude = settings.testStartLongitude,
+                latitude = settings.testStartLatitude,
+                heightMeters = settings.testStartHeightMeters,
+                headingDegrees = settings.testStartHeadingDegrees,
+                userScale = Mathf.Max(0.01f, settings.testStartUserScale),
+                movementMode = settings.testStartGrounded ? MovementMode.Grounded : MovementMode.Flight,
+                utcTimeTicks = sunAndSky.UtcTime.Ticks
+            };
+            SessionLog.Info(
+                $"EarthVR test start: {place.name} lon {place.longitude:F5} lat {place.latitude:F5} " +
+                $"height {place.heightMeters:F1} m heading {place.headingDegrees:F0} mode {place.movementMode} " +
+                $"scale {place.userScale:F2} sun {sunAndSky.UtcTime:u}");
+            arrival.TravelTo(place, false);
+        }
+
         private static void SelectStartingPlace(EarthVRSettings settings)
         {
+            if (settings.testStartEnabled)
+            {
+                settings.startPlaceName = settings.testStartName;
+                settings.startLongitude = settings.testStartLongitude;
+                settings.startLatitude = settings.testStartLatitude;
+                settings.startHeightMeters = settings.testStartHeightMeters;
+                return;
+            }
+
             if (!settings.randomizeStartingLocation || OfflinePlaceCatalog.StartingPlaces.Count == 0)
                 return;
 

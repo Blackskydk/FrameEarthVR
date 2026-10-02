@@ -51,6 +51,28 @@ namespace EarthVR.Tests
         }
 
         [Test]
+        public void TestStartDefaultsToOffAndPointsAtBigBen()
+        {
+            var settings = ScriptableObject.CreateInstance<EarthVRSettings>();
+            try
+            {
+                Assert.That(settings.testStartEnabled, Is.False);
+                Assert.That(settings.testStartGrounded, Is.True);
+                Assert.That(settings.testStartLatitude, Is.EqualTo(51.5004).Within(0.001));
+                Assert.That(settings.testStartLongitude, Is.EqualTo(-0.1246).Within(0.001));
+                Assert.That(System.DateTime.TryParse(
+                    settings.testStartUtc,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                    out _), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
         public void OverrideFileReplacesOnlyTheFieldsItNames()
         {
             var settings = ScriptableObject.CreateInstance<EarthVRSettings>();

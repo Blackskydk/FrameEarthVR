@@ -4,6 +4,30 @@ Nothing here has been measured on a headset by the author of these changes;
 they are settings, switches and diagnostics to make that testing quick. Where
 a default changed, the reason is given so it can be reverted.
 
+## Repeatable test routine (fixed Big Ben start)
+
+While testing, the game starts at the same viewpoint every time: on the ground about 35 m south
+of Big Ben, facing it, in Grounded mode at human scale, with the sun fixed at 10:00 UTC on
+21 June. It arrives through the normal fade ("Loading Big Ben ...%") and reveals once tiles are
+loaded. It is controlled by `testStartEnabled` in `EarthVRSettings.asset` (also the coordinates,
+height, heading, mode, scale and sun time); turn it off with `-Override '{"testStartEnabled": false}'`
+or by unchecking the asset field.
+
+1. **Update and install:** `git pull`, then
+   `.\scripts\build-and-install-steam-frame.ps1 -DeviceHost 192.168.50.138`
+   (add `-Release` when judging performance).
+2. **Baseline run:**
+   `.\scripts\capture-frame-logs.ps1 -DeviceHost 192.168.50.138 -Label baseline -ClearOverride -GrantPermissions`
+3. **In the headset** (the script waits 120 s): put it on, wait for the fade-in at Big Ben, then
+   stand still for 20 s looking at the tower, then the Thames. Note the blur/cutoff, the tile lines
+   and anything odd.
+4. **Send me** `Logs\frame-report-<time>-baseline.txt` plus what you saw.
+5. **Each test** is the same command with a new `-Label` and an `-Override` (each override
+   replaces the previous one; do not stack them across runs):
+   - `-Label free-quality -Override '{"standaloneFoveationLevelOverride": 0, "standaloneMsaa": 4}'`
+   - `-Label flat-light -Override '{"standaloneFlatTileLighting": true}'`
+6. **Finish** with `-Label done -ClearOverride`.
+
 ## What is applied where
 
 | Setting | PC | Steam Frame (Android) | Notes |

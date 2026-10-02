@@ -109,9 +109,9 @@ namespace EarthVR.Configuration
         [Header("Tiles")]
         [Tooltip("Try Google Photorealistic 3D Tiles before the Cesium terrain fallback. Disable while Google root requests are quota-limited.")]
         public bool preferGooglePhotorealisticTiles = true;
-        [Min(1f)] public float pcMaximumScreenSpaceError = 6f;
+        [Min(1f)] public float pcMaximumScreenSpaceError = 4f;
         [Min(1f)] public float standaloneMaximumScreenSpaceError = 6f;
-        [Min(64)] public int pcCacheMegabytes = 3072;
+        [Min(64)] public int pcCacheMegabytes = 4096;
         [Min(64)] public int standaloneCacheMegabytes = 1536;
         [Min(1)] public int maximumSimultaneousTileLoads = 20;
         public bool createPhysicsMeshes = true;
@@ -128,10 +128,31 @@ namespace EarthVR.Configuration
         [Min(0.5f)] public float horizonFogEndFraction = 1.04f;
 
         [Header("Platform quality profiles")]
-        [Range(0.5f, 2f)] public float pcRenderScale = 1f;
+        [Tooltip("MSAA and render scale are written to the URP asset at startup (see RuntimeQuality).")]
+        [Range(0.5f, 2f)] public float pcRenderScale = 1.25f;
         [Range(0.5f, 1.5f)] public float standaloneRenderScale = 1f;
-        [Range(0, 8)] public int pcMsaa = 2;
+        [Range(0, 8)] public int pcMsaa = 4;
         [Range(0, 4)] public int standaloneMsaa = 2;
+        [Tooltip("Bloom needs HDR to do much; this pipeline is LDR, so it costs several full-screen passes for almost no visible change.")]
+        public bool pcBloom = true;
+        public bool standaloneBloom = false;
+        [Tooltip("Daytime dynamic sun shadows near the viewer. Photoreal tiles already carry baked shadows.")]
+        public bool pcSunShadows = true;
+        public bool standaloneSunShadows = true;
+        [Tooltip("Sun shadows are only drawn while the user scale is at or below this. The shadow distance is fixed in scene units, so at giant scale the shadow map spans kilometres, is too coarse to see, and still redraws every tile.")]
+        [Min(1f)] public float sunShadowMaxUserScale = 4f;
+        [Tooltip("Loading margin around the visible view for the headset-only terrain edge preload camera. Smaller loads fewer unseen tiles.")]
+        [Range(1f, 1.5f)] public float standaloneEdgePreloadMargin = 1.1f;
+        [Tooltip("Foveation level (0-1) applied once XR is running; higher is stronger. Negative leaves the build-time level untouched.")]
+        [Range(-1f, 1f)] public float standaloneFoveationLevelOverride = 0.25f;
+
+        [Tooltip("Light tiles with a flat, direction-free ambient instead of the sun. Photogrammetry is already lit, so this avoids re-lighting it and its faceted shading; day/night still dims it.")]
+        public bool pcFlatTileLighting = false;
+        public bool standaloneFlatTileLighting = false;
+
+        public bool FlatTileLightingEnabled => Application.isMobilePlatform ? standaloneFlatTileLighting : pcFlatTileLighting;
+        public bool BloomEnabled => Application.isMobilePlatform ? standaloneBloom : pcBloom;
+        public bool SunShadowsEnabled => Application.isMobilePlatform ? standaloneSunShadows : pcSunShadows;
 
         public static EarthVRSettings CreateRuntimeDefaults()
         {

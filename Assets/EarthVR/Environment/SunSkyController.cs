@@ -16,6 +16,15 @@ namespace EarthVR.Sky
         public void Configure(bool representsMoon) => RepresentsMoon = representsMoon;
     }
 
+    /// <summary>How the sun's shadow pass is chosen. Auto draws shadows only at or below
+    /// the settings' sunShadowMaxUserScale; On and Off force it either way.</summary>
+    public enum SunShadowPreference
+    {
+        Auto,
+        On,
+        Off
+    }
+
     [DefaultExecutionOrder(-100)]
     public sealed class SunSkyController : MonoBehaviour
     {
@@ -28,6 +37,24 @@ namespace EarthVR.Sky
         private EarthVRRig _rig;
         private NavigationController _navigation;
         private Light _sunLight;
+        private float _lastDaylight;
+        private bool _flatTileLighting;
+
+        public SunShadowPreference ShadowPreference { get; set; } = SunShadowPreference.Auto;
+
+        /// <summary>Lights tiles with a flat ambient only (no sun shading or shadows).
+        /// Starts from the settings; can be changed live.</summary>
+        public bool FlatTileLighting
+        {
+            get => _flatTileLighting;
+            set
+            {
+                if (_flatTileLighting == value)
+                    return;
+                _flatTileLighting = value;
+                ApplyEnvironment();
+            }
+        }
         private Light _moonLight;
         private Material _skyMaterial;
         private Material _sunMaterial;
@@ -74,6 +101,11 @@ namespace EarthVR.Sky
         {
             _input = input;
             _settings = settings;
+            _flatTileLighting = UserQualityPreferences.GetBool(UserQualityPreferences.FlatTileLighting) ??
+                                settings.FlatTileLightingEnabled;
+            var savedShadows = UserQualityPreferences.GetInt(UserQualityPreferences.SunShadows);
+            if (savedShadows.HasValue && Enum.IsDefined(typeof(SunShadowPreference), savedShadows.Value))
+                ShadowPreference = (SunShadowPreference)savedShadows.Value;
             _rig = rig;
             _navigation = navigation;
             // Start new sessions in useful daylight instead of inheriting the
@@ -188,6 +220,7 @@ namespace EarthVR.Sky
                 return;
 
             EnsureSolarPath();
+            UpdateShadowsForScale();
             var triggerHand = ActiveTriggerHand();
             if (_dragHand != null)
             {
@@ -425,6 +458,34 @@ namespace EarthVR.Sky
             _utcTime = _solarPathTimes[bestIndex];
         }
 
+        private LightShadows SunShadowMode(float daylight)
+        {
+            if (_flatTileLighting || daylight <= 0.04f)
+                return LightShadows.None;
+            switch (ShadowPreference)
+            {
+                case SunShadowPreference.On:
+                    return LightShadows.Soft;
+                case SunShadowPreference.Off:
+                    return LightShadows.None;
+                default:
+                    return _settings.SunShadowsEnabled && _navigation.UserScale <= _settings.sunShadowMaxUserScale
+                        ? LightShadows.Soft
+                        : LightShadows.None;
+            }
+        }
+
+        /// <summary>User scale changes continuously, so re-evaluate whether the sun's
+        /// shadow pass is worth drawing (it redraws every tile) each frame.</summary>
+        private void UpdateShadowsForScale()
+        {
+            if (_sunLight == null)
+                return;
+            var wanted = SunShadowMode(_lastDaylight);
+            if (_sunLight.shadows != wanted)
+                _sunLight.shadows = wanted;
+        }
+
         private void ApplyEnvironment()
         {
             var llh = _navigation.LongitudeLatitudeHeight;
@@ -448,7 +509,8 @@ namespace EarthVR.Sky
                 new Color(1f, 0.20f, 0.055f),
                 new Color(1f, 0.97f, 0.88f),
                 highSun);
-            _sunLight.shadows = daylight > 0.04f ? LightShadows.Soft : LightShadows.None;
+            _lastDaylight = daylight;
+            _sunLight.shadows = SunShadowMode(daylight);
 
             _moonLight.transform.rotation = Quaternion.LookRotation(-moonDirection, Vector3.up);
             _moonLight.intensity = 0.075f * night;
@@ -463,6 +525,19 @@ namespace EarthVR.Sky
             RenderSettings.ambientIntensity = Mathf.Lerp(0.08f, 1f, daylight);
             RenderSettings.reflectionIntensity = Mathf.Lerp(0.04f, 1f, daylight);
             RenderSettings.sun = _sunLight;
+
+            if (_flatTileLighting)
+            {
+                // Flat, direction-free ambient only: tiles show their own baked
+                // lighting instead of being re-lit by the sun (no facet shading,
+                // specular or sun shadows). Night still dims the scene.
+                _sunLight.intensity = 0f;
+                _sunLight.shadows = LightShadows.None;
+                _moonLight.intensity = 0f;
+                RenderSettings.ambientLight = Color.white * Mathf.Lerp(0.10f, 1f, daylight);
+                RenderSettings.ambientIntensity = 1f;
+                RenderSettings.reflectionIntensity = 0f;
+            }
 
             if (_colorAdjustments != null)
             {
@@ -543,6 +618,11 @@ namespace EarthVR.Sky
             _colorAdjustments.colorFilter.Override(Color.white);
             _colorAdjustments.saturation.Override(0f);
             _colorAdjustments.contrast.Override(0f);
+            // Bloom is skipped when disabled (headset default): in this LDR
+            // pipeline its 1.1 threshold is above the brightest output, so it
+            // costs several full-screen passes for almost no visible change.
+            if (!_settings.BloomEnabled)
+                return;
             _bloom = _volumeProfile.Add<Bloom>(true);
             _bloom.threshold.Override(1.1f);
             _bloom.intensity.Override(0.25f);

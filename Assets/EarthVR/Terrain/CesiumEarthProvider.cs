@@ -30,6 +30,7 @@ namespace EarthVR.Terrain
         private string _rateLimitSourceName = "Google 3D Tiles";
         private Camera _streamingCamera;
         private Camera _edgePreloadCamera;
+        private float _edgePreloadMargin = 1.2f;
         private bool _preferGooglePhotorealisticTiles;
         private static readonly Camera.StereoscopicEye[] PreloadEyes =
             { Camera.StereoscopicEye.Left, Camera.StereoscopicEye.Right };
@@ -102,6 +103,7 @@ namespace EarthVR.Terrain
                 _streamingCamera = streamingCamera;
                 if (Application.isMobilePlatform)
                 {
+                    _edgePreloadMargin = Mathf.Clamp(settings.standaloneEdgePreloadMargin, 1f, 1.5f);
                     var preloadObject = new GameObject("Terrain Edge Preload View", typeof(Camera));
                     preloadObject.transform.SetParent(streamingCamera.transform, false);
                     _edgePreloadCamera = preloadObject.GetComponent<Camera>();
@@ -150,7 +152,7 @@ namespace EarthVR.Terrain
                         (1f + Mathf.Abs(projection.m12)) / Mathf.Max(0.001f, Mathf.Abs(projection.m11)));
                 }
             }
-            const float margin = 1.2f;
+            var margin = _edgePreloadMargin;
             _edgePreloadCamera.fieldOfView = 2f * Mathf.Atan(verticalTangent * margin) * Mathf.Rad2Deg;
             _edgePreloadCamera.nearClipPlane = _streamingCamera.nearClipPlane;
             _edgePreloadCamera.farClipPlane = _streamingCamera.farClipPlane;

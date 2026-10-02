@@ -6,6 +6,7 @@ using EarthVR.Core;
 using EarthVR.Input;
 using EarthVR.Navigation;
 using EarthVR.Scaling;
+using EarthVR.Sky;
 using EarthVR.Terrain;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -70,6 +71,24 @@ namespace EarthVR.UI
         private GameObject _mainPanel;
         private GameObject _searchPanel;
         private GameObject _placesPanel;
+        private GameObject _settingsPanel;
+        private SunSkyController _sunAndSky;
+        private WorldSpaceButton _settingsButton;
+        private WorldSpaceButton _shadowButton;
+        private WorldSpaceButton _flatLightButton;
+        private WorldSpaceButton _foveationButton;
+        private WorldSpaceButton _strengthButton;
+        private WorldSpaceButton _gazeButton;
+        private Text _strengthLabel;
+        private Text _gazeLabel;
+        private float _lastFoveationLevel = 0.25f;
+        private WorldSpaceButton _msaaButton;
+        private Text _shadowLabel;
+        private Text _flatLightLabel;
+        private Text _foveationLabel;
+        private Text _msaaLabel;
+        private static readonly float[] StrengthSteps = { 0.15f, 0.25f, 0.5f };
+        private static readonly int[] MsaaSteps = { 1, 2, 4 };
         private GameObject _keyboardPanel;
         private GameObject _resultsPanel;
         private GameObject _suggestionsPanel;
@@ -213,6 +232,7 @@ namespace EarthVR.UI
 
             CreateSearchPanel(canvasObject.transform);
             CreatePlacesPanel(canvasObject.transform);
+            CreateSettingsPanel(canvasObject.transform);
             _places.Changed += RefreshPlaces;
             SetOpen(false);
             _canvas.gameObject.SetActive(false);
@@ -241,6 +261,7 @@ namespace EarthVR.UI
             _mainPanel.SetActive(false);
             _searchPanel.SetActive(false);
             _placesPanel.SetActive(false);
+            _settingsPanel?.SetActive(false);
             SetPointedButton(null);
         }
 
@@ -325,6 +346,11 @@ namespace EarthVR.UI
             _menuButton = CreateRoundStateButton(parent, "OPEN\nMENU",
                 new Vector2(550f, -270f), () => SetOpen(!_isOpen), diameter,
                 out _menuButtonLabel);
+            _settingsButton = CreateRoundStateButton(parent, "SETTINGS",
+                new Vector2(550f, 450f), ShowSettings, diameter,
+                out var settingsButtonLabel);
+            settingsButtonLabel.text = "SETTINGS";
+            _settingsButton.SetNormalColor(DisabledColor);
         }
 
         private void ToggleFavoriteCurrentView()
@@ -493,10 +519,157 @@ namespace EarthVR.UI
             }
         }
 
+        public void SetSunSky(SunSkyController sunAndSky) => _sunAndSky = sunAndSky;
+
+        private void CreateSettingsPanel(Transform parent)
+        {
+            _settingsPanel = CreatePanel(parent, BackgroundColor);
+            ConfigureMenuPanel(_settingsPanel);
+            var title = CreateText(_settingsPanel.transform, new Vector2(0f, 402f), new Vector2(560f, 54f), 30, TextAnchor.MiddleCenter);
+            title.text = "SETTINGS";
+            title.fontStyle = FontStyle.Bold;
+            title.color = AccentColor;
+
+            var size = new Vector2(560f, 58f);
+            _shadowButton = CreateStateButton(_settingsPanel.transform, "Sun shadows", new Vector2(0f, 332f), CycleShadows, size, out _shadowLabel);
+            _flatLightButton = CreateStateButton(_settingsPanel.transform, "Flat tile lighting", new Vector2(0f, 264f), ToggleFlatLighting, size, out _flatLightLabel);
+            _foveationButton = CreateStateButton(_settingsPanel.transform, "Foveation", new Vector2(0f, 196f), ToggleFoveation, size, out _foveationLabel);
+            _strengthButton = CreateStateButton(_settingsPanel.transform, "Foveation strength", new Vector2(0f, 128f), CycleFoveationStrength, size, out _strengthLabel);
+            _gazeButton = CreateStateButton(_settingsPanel.transform, "Eye tracking", new Vector2(0f, 60f), ToggleGaze, size, out _gazeLabel);
+            _msaaButton = CreateStateButton(_settingsPanel.transform, "MSAA", new Vector2(0f, -8f), CycleMsaa, size, out _msaaLabel);
+            var note = CreateText(_settingsPanel.transform, new Vector2(0f, -110f), new Vector2(540f, 120f), 20, TextAnchor.UpperLeft);
+            note.text = "Changes apply immediately and are remembered for the next start.";
+            note.color = MutedTextColor;
+            CreateButton(_settingsPanel.transform, "Back to controls", new Vector2(0f, -400f), ShowMain, new Vector2(480f, 54f));
+        }
+
+        private void ShowSettings()
+        {
+            _searchCancellation?.Cancel();
+            _keyboardProvider?.Hide();
+            _mainPanel.SetActive(false);
+            _searchPanel.SetActive(false);
+            _placesPanel.SetActive(false);
+            _settingsPanel.SetActive(true);
+            RefreshSettingsPanel();
+            _nextUiRefreshTime = 0f;
+        }
+
+        private void RefreshSettingsPanel()
+        {
+            if (_settingsPanel == null)
+                return;
+            var shadows = _sunAndSky != null ? _sunAndSky.ShadowPreference : SunShadowPreference.Auto;
+            _shadowLabel.text = "SUN SHADOWS: " + shadows.ToString().ToUpperInvariant();
+            _shadowButton.SetNormalColor(shadows == SunShadowPreference.Auto ? DisabledColor : EnabledColor);
+
+            var flat = _sunAndSky != null && _sunAndSky.FlatTileLighting;
+            _flatLightLabel.text = "FLAT TILE LIGHTING: " + (flat ? "ON" : "OFF");
+            _flatLightButton.SetNormalColor(flat ? EnabledColor : DisabledColor);
+
+            var level = RuntimeQuality.CurrentFoveationLevel();
+            if (level > 0.001f)
+                _lastFoveationLevel = level;
+            _foveationLabel.text = "FOVEATED RENDERING: " + (level < 0f ? "n/a" : level <= 0.001f ? "OFF" : "ON");
+            _foveationButton.SetNormalColor(level > 0.001f ? EnabledColor : DisabledColor);
+            _strengthLabel.text = "FOVEATION STRENGTH: " + _lastFoveationLevel.ToString("0.00");
+            _strengthButton.SetNormalColor(level > 0.001f ? EnabledColor : DisabledColor);
+
+            var gaze = RuntimeQuality.IsGazeAllowed();
+            _gazeLabel.text = "EYE TRACKING: " + (gaze == null ? "n/a" : gaze.Value ? "ON" : "OFF");
+            _gazeButton.SetNormalColor(gaze == true ? EnabledColor : DisabledColor);
+
+            var msaa = RuntimeQuality.CurrentMsaa;
+            _msaaLabel.text = "MSAA: " + (msaa <= 1 ? "OFF" : msaa + "x");
+            _msaaButton.SetNormalColor(msaa > 1 ? EnabledColor : DisabledColor);
+        }
+
+        private void CycleShadows()
+        {
+            if (_sunAndSky == null)
+                return;
+            _sunAndSky.ShadowPreference = (SunShadowPreference)(((int)_sunAndSky.ShadowPreference + 1) % 3);
+            UserQualityPreferences.SetInt(UserQualityPreferences.SunShadows, (int)_sunAndSky.ShadowPreference);
+            RefreshSettingsPanel();
+        }
+
+        private void ToggleFlatLighting()
+        {
+            if (_sunAndSky == null)
+                return;
+            _sunAndSky.FlatTileLighting = !_sunAndSky.FlatTileLighting;
+            UserQualityPreferences.SetBool(UserQualityPreferences.FlatTileLighting, _sunAndSky.FlatTileLighting);
+            RefreshSettingsPanel();
+        }
+
+        /// <summary>Turns foveated rendering off, or back on at the last strength used.</summary>
+        private void ToggleFoveation()
+        {
+            var current = RuntimeQuality.CurrentFoveationLevel();
+            if (current < 0f)
+                return;
+            if (current > 0.001f)
+            {
+                _lastFoveationLevel = current;
+                RuntimeQuality.SetFoveationLevelNow(0f);
+                UserQualityPreferences.SetFloat(UserQualityPreferences.FoveationLevel, 0f);
+            }
+            else
+            {
+                RuntimeQuality.SetFoveationLevelNow(_lastFoveationLevel);
+                UserQualityPreferences.SetFloat(UserQualityPreferences.FoveationLevel, _lastFoveationLevel);
+            }
+            RefreshSettingsPanel();
+        }
+
+        private void CycleFoveationStrength()
+        {
+            var nearest = 0;
+            for (var i = 1; i < StrengthSteps.Length; i++)
+            {
+                if (Mathf.Abs(StrengthSteps[i] - _lastFoveationLevel) < Mathf.Abs(StrengthSteps[nearest] - _lastFoveationLevel))
+                    nearest = i;
+            }
+            _lastFoveationLevel = StrengthSteps[(nearest + 1) % StrengthSteps.Length];
+            // Only apply it now if foveation is on; otherwise it is used when turned back on.
+            if (RuntimeQuality.CurrentFoveationLevel() > 0.001f)
+            {
+                RuntimeQuality.SetFoveationLevelNow(_lastFoveationLevel);
+                UserQualityPreferences.SetFloat(UserQualityPreferences.FoveationLevel, _lastFoveationLevel);
+            }
+            RefreshSettingsPanel();
+        }
+
+        private void ToggleGaze()
+        {
+            var gaze = RuntimeQuality.IsGazeAllowed();
+            if (gaze == null)
+                return;
+            RuntimeQuality.SetGazeAllowed(!gaze.Value);
+            UserQualityPreferences.SetBool(UserQualityPreferences.EyeTracking, !gaze.Value);
+            RefreshSettingsPanel();
+        }
+
+        private void CycleMsaa()
+        {
+            var current = RuntimeQuality.CurrentMsaa;
+            var nearest = 0;
+            for (var i = 1; i < MsaaSteps.Length; i++)
+            {
+                if (Mathf.Abs(MsaaSteps[i] - current) < Mathf.Abs(MsaaSteps[nearest] - current))
+                    nearest = i;
+            }
+            var next = MsaaSteps[(nearest + 1) % MsaaSteps.Length];
+            RuntimeQuality.SetMsaa(next);
+            UserQualityPreferences.SetInt(UserQualityPreferences.Msaa, next);
+            RefreshSettingsPanel();
+        }
+
         private void ShowSearch()
         {
             _mainPanel.SetActive(false);
             _placesPanel.SetActive(false);
+            _settingsPanel?.SetActive(false);
             _searchPanel.SetActive(true);
             if (_keyboardProvider != null && _keyboardProvider.IsAvailable)
             {
@@ -518,6 +691,7 @@ namespace EarthVR.UI
             _keyboardProvider?.Hide();
             _searchPanel.SetActive(false);
             _placesPanel.SetActive(false);
+            _settingsPanel?.SetActive(false);
             _mainPanel.SetActive(true);
         }
 
@@ -527,6 +701,7 @@ namespace EarthVR.UI
             _keyboardProvider?.Hide();
             _mainPanel.SetActive(false);
             _searchPanel.SetActive(false);
+            _settingsPanel?.SetActive(false);
             _placesPanel.SetActive(true);
             RefreshPlaces();
         }
@@ -866,6 +1041,7 @@ namespace EarthVR.UI
             FacePanel(_mainPanel);
             FacePanel(_searchPanel);
             FacePanel(_placesPanel);
+            FacePanel(_settingsPanel);
         }
 
         private void FacePanel(GameObject panel)

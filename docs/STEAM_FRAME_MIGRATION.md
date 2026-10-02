@@ -30,7 +30,7 @@ The command configures:
 - required internet permission for Cesium streaming
 - Unity OpenXR with single-pass multiview rendering
 - predicted display time and render-priority latency mode
-- SRP foveated rendering, symmetric projection, render-region optimization, and buffer-discard optimization
+- SRP foveated rendering (level 0.25, eye-tracked), buffer-discard optimization and late latching; render regions and symmetric projection are left off because they made the foveation cut-off clearly visible
 - Steam Frame, Oculus Touch fallback, and Khronos simple controller profiles
 - package id `com.frameearthvr.app`
 
@@ -79,7 +79,9 @@ The script finds Unity's bundled `adb`, connects, replaces an existing developme
 
 Use the development APK with Unity Profiler and Android logcat. Check GPU frame time, CPU tile decoding, network throughput, thermal throttling, memory, and Cesium cache pressure. Tune `standaloneRenderScale`, `standaloneMsaa`, tile screen-space error, cache size, and concurrent tile loads in `EarthVRSettings.asset` based on hardware measurements.
 
-No desktop or emulator result proves headset performance. Foveation and multiview render regions also need validation on the actual Steam Frame runtime.
+No desktop or emulator result proves headset performance. Foveation and eye tracking also need validation on the actual Steam Frame runtime.
+
+See [Performance tuning](PERFORMANCE_TUNING.md) for the per-platform quality profile, the in-game SETTINGS page, and notes on visible gaps between tiles.
 
 ## Credentials
 

@@ -168,10 +168,12 @@ namespace EarthVR.Editor
 #endif
             if (buildTargetGroup == BuildTargetGroup.Android)
             {
-                openXr.symmetricProjection = true;
+                // Render regions and symmetric projection are left off: with them on, the
+                // foveation cut-off was clearly visible on Steam Frame.
+                openXr.symmetricProjection = false;
 #if UNITY_6000_1_OR_NEWER
                 openXr.multiviewRenderRegionsOptimizationMode =
-                    OpenXRSettings.MultiviewRenderRegionsOptimizationMode.AllPasses;
+                    OpenXRSettings.MultiviewRenderRegionsOptimizationMode.None;
 #endif
 #if UNITY_2023_2_OR_NEWER
                 openXr.foveatedRenderingApi = OpenXRSettings.BackendFovationApi.SRPFoveation;
@@ -203,8 +205,9 @@ namespace EarthVR.Editor
                 }
                 else if (isCommonController || isDesktopController || isAndroidPerformanceFeature)
                 {
-                    feature.enabled = true;
-                    if (buildTargetGroup == BuildTargetGroup.Android)
+                    var enable = typeName != RenderRegionsFeatureName;
+                    feature.enabled = enable;
+                    if (enable && buildTargetGroup == BuildTargetGroup.Android)
                         ConfigureValveFeature(feature, typeName);
                     EditorUtility.SetDirty(feature);
                 }
@@ -212,19 +215,20 @@ namespace EarthVR.Editor
             return assigned;
         }
 
+        private const string RenderRegionsFeatureName = "ValveOpenXRRenderRegionsFeature";
+
+        /// <summary>Foveation strength (0-1) handed to Valve's feature at build time. The
+        /// runtime value in EarthVRSettings is applied over it once XR is running.</summary>
+        private const float FoveationLevel = 0.25f;
+
         private static void ConfigureValveFeature(Object feature, string typeName)
         {
             var serialized = new SerializedObject(feature);
             if (typeName == "ValveOpenXRFoveatedRenderingFeature")
             {
                 SetBool(serialized, "applySettingsOnStartup", true);
-                SetFloat(serialized, "initialFoveationLevel", 0.5f);
-                SetBool(serialized, "initialUseEyeTracking", false);
-            }
-            else if (typeName == "ValveOpenXRRenderRegionsFeature")
-            {
-                SetBool(serialized, "symmetricProjection", true);
-                SetEnum(serialized, "multiviewRenderRegionsOptimizationMode", 2);
+                SetFloat(serialized, "initialFoveationLevel", FoveationLevel);
+                SetBool(serialized, "initialUseEyeTracking", true);
             }
             else if (typeName == "ValveOpenXRSupportFeature")
             {
@@ -247,13 +251,6 @@ namespace EarthVR.Editor
             var property = serialized.FindProperty(propertyName);
             if (property != null)
                 property.floatValue = value;
-        }
-
-        private static void SetEnum(SerializedObject serialized, string propertyName, int value)
-        {
-            var property = serialized.FindProperty(propertyName);
-            if (property != null)
-                property.enumValueIndex = value;
         }
 
         private static void CreateMainScene()

@@ -9,7 +9,6 @@ using EarthVR.Terrain;
 using EarthVR.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.XR;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.OpenXR;
 
@@ -45,11 +44,20 @@ namespace EarthVR.Core
             settings.hideFlags = HideFlags.DontSave;
             SelectStartingPlace(settings);
 
+            if (Application.isMobilePlatform)
+            {
+                // Cesium's mesh-collider warnings arrive hundreds of times a minute;
+                // stack traces made each one seven log lines and cost CPU to capture.
+                Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
+                Application.SetStackTraceLogType(LogType.Warning, StackTraceLogType.None);
+            }
+
             Application.targetFrameRate = 90;
             QualitySettings.vSyncCount = 0;
             QualitySettings.maxQueuedFrames = 1;
-            QualitySettings.antiAliasing = Application.isMobilePlatform ? settings.standaloneMsaa : settings.pcMsaa;
-            XRSettings.eyeTextureResolutionScale = Application.isMobilePlatform ? settings.standaloneRenderScale : settings.pcRenderScale;
+            RuntimeQuality.Apply(settings);
+            if (Application.isMobilePlatform)
+                StartCoroutine(RuntimeQuality.ApplyFoveation(settings));
 #if UNITY_6000_2_OR_NEWER
             if (OpenXRSettings.Instance != null)
                 OpenXRSettings.Instance.useOpenXRPredictedTime = true;
@@ -143,6 +151,7 @@ namespace EarthVR.Core
             credentialSetup.Initialize(rig, input, earth, navigation, scaling);
             menu.SetCredentialSetup(credentialSetup);
             menu.SetUpdateChecker(gameObject.AddComponent<ReleaseUpdateChecker>());
+            menu.SetSunSky(sunAndSky);
         }
 
         private static void SelectStartingPlace(EarthVRSettings settings)

@@ -101,7 +101,11 @@ namespace EarthVR.Sky
         {
             _input = input;
             _settings = settings;
-            _flatTileLighting = settings.FlatTileLightingEnabled;
+            _flatTileLighting = UserQualityPreferences.GetBool(UserQualityPreferences.FlatTileLighting) ??
+                                settings.FlatTileLightingEnabled;
+            var savedShadows = UserQualityPreferences.GetInt(UserQualityPreferences.SunShadows);
+            if (savedShadows.HasValue && Enum.IsDefined(typeof(SunShadowPreference), savedShadows.Value))
+                ShadowPreference = (SunShadowPreference)savedShadows.Value;
             _rig = rig;
             _navigation = navigation;
             // Start new sessions in useful daylight instead of inheriting the

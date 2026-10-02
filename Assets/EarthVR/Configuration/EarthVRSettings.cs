@@ -5,21 +5,6 @@ namespace EarthVR.Configuration
     [CreateAssetMenu(menuName = "EarthVR/Settings", fileName = "EarthVRSettings")]
     public sealed class EarthVRSettings : ScriptableObject
     {
-        [Header("Test start (a fixed, repeatable viewpoint for testing)")]
-        [Tooltip("Start at the fixed viewpoint below instead of a random place, arrive in the chosen mode once tiles have loaded, and fix the sun time.")]
-        public bool testStartEnabled = false;
-        public string testStartName = "Big Ben (test start)";
-        public double testStartLongitude = -0.12458;
-        public double testStartLatitude = 51.50041;
-        [Tooltip("Eye height in metres above the WGS84 ellipsoid. Street level near Big Ben is about 52 m; the grounding system settles the user onto the ground.")]
-        public float testStartHeightMeters = 62f;
-        [Tooltip("Compass heading; 0 faces north, which looks at the tower from the south.")]
-        public float testStartHeadingDegrees = 0f;
-        public bool testStartGrounded = true;
-        [Min(0.01f)] public float testStartUserScale = 1f;
-        [Tooltip("Fixed UTC time for the sun, ISO 8601. Empty keeps the current time.")]
-        public string testStartUtc = "2026-06-21T10:00:00Z";
-
         [Header("Starting location")]
         public bool randomizeStartingLocation = true;
         public string startPlaceName = "Copenhagen";
@@ -168,25 +153,6 @@ namespace EarthVR.Configuration
         public bool FlatTileLightingEnabled => Application.isMobilePlatform ? standaloneFlatTileLighting : pcFlatTileLighting;
         public bool BloomEnabled => Application.isMobilePlatform ? standaloneBloom : pcBloom;
         public bool SunShadowsEnabled => Application.isMobilePlatform ? standaloneSunShadows : pcSunShadows;
-
-        /// <summary>Keeps values read from the on-device override file inside
-        /// ranges the renderer and tile streamer can safely use.</summary>
-        public void ClampToSafeRanges()
-        {
-            pcMaximumScreenSpaceError = Mathf.Max(1f, pcMaximumScreenSpaceError);
-            standaloneMaximumScreenSpaceError = Mathf.Max(1f, standaloneMaximumScreenSpaceError);
-            pcCacheMegabytes = Mathf.Max(64, pcCacheMegabytes);
-            standaloneCacheMegabytes = Mathf.Max(64, standaloneCacheMegabytes);
-            maximumSimultaneousTileLoads = Mathf.Max(1, maximumSimultaneousTileLoads);
-            humanNearClipMeters = Mathf.Max(0.001f, humanNearClipMeters);
-            pcRenderScale = Mathf.Clamp(pcRenderScale, 0.5f, 2f);
-            standaloneRenderScale = Mathf.Clamp(standaloneRenderScale, 0.5f, 1.5f);
-            pcMsaa = Mathf.Clamp(pcMsaa, 0, 8);
-            standaloneMsaa = Mathf.Clamp(standaloneMsaa, 0, 4);
-            standaloneEdgePreloadMargin = Mathf.Clamp(standaloneEdgePreloadMargin, 1f, 1.5f);
-            sunShadowMaxUserScale = Mathf.Max(1f, sunShadowMaxUserScale);
-            standaloneFoveationLevelOverride = Mathf.Clamp(standaloneFoveationLevelOverride, -1f, 1f);
-        }
 
         public static EarthVRSettings CreateRuntimeDefaults()
         {

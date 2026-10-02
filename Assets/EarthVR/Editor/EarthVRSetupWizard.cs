@@ -166,34 +166,19 @@ namespace EarthVR.Editor
 #if UNITY_6000_2_OR_NEWER
             openXr.useOpenXRPredictedTime = true;
 #endif
-            // Builds re-apply these every time. With the build menu's
-            // "Force Performance Features" unchecked, whatever is set in Project
-            // Settings is kept so each can be switched off to isolate artifacts.
-            var forceAndroidPerformance = buildTargetGroup != BuildTargetGroup.Android ||
-                                          SteamFrameBuild.ForcePerformanceFeatures;
-            if (buildTargetGroup == BuildTargetGroup.Android && !forceAndroidPerformance)
+            if (buildTargetGroup == BuildTargetGroup.Android)
             {
-                Debug.Log(
-                    "EarthVR: keeping the Android OpenXR performance features (foveation, render regions, " +
-                    "symmetric projection, buffer discards) exactly as set in Project Settings.");
-            }
-            if (buildTargetGroup == BuildTargetGroup.Android && forceAndroidPerformance)
-            {
-                Debug.Log("EarthVR Android features: " + SteamFrameBuild.FeatureTag() +
-                          " (F foveation, R render regions + symmetric projection, B buffer discards, " +
-                          "L late latching, E eye-tracked foveation, S SRP foveation API)");
-                openXr.symmetricProjection = SteamFrameBuild.RenderRegionsEnabled;
+                // Render regions and symmetric projection are left off: with them on, the
+                // foveation cut-off was clearly visible on Steam Frame.
+                openXr.symmetricProjection = false;
 #if UNITY_6000_1_OR_NEWER
-                openXr.multiviewRenderRegionsOptimizationMode = SteamFrameBuild.RenderRegionsEnabled
-                    ? OpenXRSettings.MultiviewRenderRegionsOptimizationMode.AllPasses
-                    : OpenXRSettings.MultiviewRenderRegionsOptimizationMode.None;
+                openXr.multiviewRenderRegionsOptimizationMode =
+                    OpenXRSettings.MultiviewRenderRegionsOptimizationMode.None;
 #endif
 #if UNITY_2023_2_OR_NEWER
-                openXr.foveatedRenderingApi = SteamFrameBuild.SrpFoveationApiEnabled
-                    ? OpenXRSettings.BackendFovationApi.SRPFoveation
-                    : OpenXRSettings.BackendFovationApi.Legacy;
+                openXr.foveatedRenderingApi = OpenXRSettings.BackendFovationApi.SRPFoveation;
 #endif
-                openXr.optimizeBufferDiscards = SteamFrameBuild.BufferDiscardsEnabled;
+                openXr.optimizeBufferDiscards = true;
             }
             EditorUtility.SetDirty(openXr);
             foreach (var feature in openXr.GetFeatures())
@@ -206,7 +191,6 @@ namespace EarthVR.Editor
                 var isDesktopController = buildTargetGroup == BuildTargetGroup.Standalone &&
                     (typeName == "ValveIndexControllerProfile" || typeName == "HTCViveControllerProfile");
                 var isAndroidPerformanceFeature = buildTargetGroup == BuildTargetGroup.Android &&
-                    forceAndroidPerformance &&
                     (typeName == "FoveatedRenderingFeature" ||
                      typeName == "ValveOpenXRFoveatedRenderingFeature" ||
                      typeName == "ValveOpenXRRenderRegionsFeature" ||
@@ -221,7 +205,7 @@ namespace EarthVR.Editor
                 }
                 else if (isCommonController || isDesktopController || isAndroidPerformanceFeature)
                 {
-                    var enable = !isAndroidPerformanceFeature || AndroidFeatureSwitchedOn(typeName);
+                    var enable = typeName != RenderRegionsFeatureName;
                     feature.enabled = enable;
                     if (enable && buildTargetGroup == BuildTargetGroup.Android)
                         ConfigureValveFeature(feature, typeName);
@@ -231,13 +215,11 @@ namespace EarthVR.Editor
             return assigned;
         }
 
-        private static bool AndroidFeatureSwitchedOn(string typeName) => typeName switch
-        {
-            "FoveatedRenderingFeature" => SteamFrameBuild.FoveatedRenderingEnabled,
-            "ValveOpenXRFoveatedRenderingFeature" => SteamFrameBuild.FoveatedRenderingEnabled,
-            "ValveOpenXRRenderRegionsFeature" => SteamFrameBuild.RenderRegionsEnabled,
-            _ => true
-        };
+        private const string RenderRegionsFeatureName = "ValveOpenXRRenderRegionsFeature";
+
+        /// <summary>Foveation strength (0-1) handed to Valve's feature at build time. The
+        /// runtime value in EarthVRSettings is applied over it once XR is running.</summary>
+        private const float FoveationLevel = 0.25f;
 
         private static void ConfigureValveFeature(Object feature, string typeName)
         {
@@ -245,18 +227,13 @@ namespace EarthVR.Editor
             if (typeName == "ValveOpenXRFoveatedRenderingFeature")
             {
                 SetBool(serialized, "applySettingsOnStartup", true);
-                SetFloat(serialized, "initialFoveationLevel", SteamFrameBuild.DefaultFoveationLevel);
-                SetBool(serialized, "initialUseEyeTracking", SteamFrameBuild.EyeTrackedFoveation);
-            }
-            else if (typeName == "ValveOpenXRRenderRegionsFeature")
-            {
-                SetBool(serialized, "symmetricProjection", true);
-                SetEnum(serialized, "multiviewRenderRegionsOptimizationMode", 2);
+                SetFloat(serialized, "initialFoveationLevel", FoveationLevel);
+                SetBool(serialized, "initialUseEyeTracking", true);
             }
             else if (typeName == "ValveOpenXRSupportFeature")
             {
-                SetBool(serialized, "optimizeBufferDiscards", SteamFrameBuild.BufferDiscardsEnabled);
-                SetBool(serialized, "lateLatchingMode", SteamFrameBuild.LateLatchingEnabled);
+                SetBool(serialized, "optimizeBufferDiscards", true);
+                SetBool(serialized, "lateLatchingMode", true);
                 SetBool(serialized, "lateLatchingDebug", false);
             }
             serialized.ApplyModifiedPropertiesWithoutUndo();
@@ -274,13 +251,6 @@ namespace EarthVR.Editor
             var property = serialized.FindProperty(propertyName);
             if (property != null)
                 property.floatValue = value;
-        }
-
-        private static void SetEnum(SerializedObject serialized, string propertyName, int value)
-        {
-            var property = serialized.FindProperty(propertyName);
-            if (property != null)
-                property.enumValueIndex = value;
         }
 
         private static void CreateMainScene()

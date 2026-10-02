@@ -13,106 +13,6 @@ namespace EarthVR.Editor
         private const string ScenePath = "Assets/EarthVR/Scenes/EarthVR.unity";
         private const string OutputPath = "Builds/SteamFrame/FrameEarthVR.apk";
 
-        private const string ForcePerformanceMenu = "EarthVR/Steam Frame/Force Performance Features On Build";
-        private const string ForcePerformanceKey = "EarthVR.SteamFrame.ForcePerformanceFeatures";
-
-        /// <summary>When true (the default) every Android build re-applies
-        /// foveation, render regions, symmetric projection and buffer discards.</summary>
-        internal static bool ForcePerformanceFeatures => EditorPrefs.GetBool(ForcePerformanceKey, true);
-
-        private const string EyeTrackedFoveationMenu = "EarthVR/Steam Frame/Eye-Tracked Foveation";
-        private const string EyeTrackedFoveationKey = "EarthVR.SteamFrame.EyeTrackedFoveation";
-
-        /// <summary>Build-time foveation level handed to Valve's foveation
-        /// feature. 0.5 looked too aggressive on Steam Frame; the runtime value
-        /// in EarthVRSettings is applied over it once XR is running.</summary>
-        internal const float DefaultFoveationLevel = 0.25f;
-
-        /// <summary>Lets Valve's foveation feature move the sharp region with
-        /// the eyes instead of fixing it at the centre. Experimental: it
-        /// depends on the runtime exposing eye-tracked foveation; off by default
-        /// because it left half of one eye blurry (gaze centre misplaced).</summary>
-        internal static bool EyeTrackedFoveation => EditorPrefs.GetBool(EyeTrackedFoveationKey, false);
-
-        [MenuItem(EyeTrackedFoveationMenu, priority = 31)]
-        private static void ToggleEyeTrackedFoveation() =>
-            EditorPrefs.SetBool(EyeTrackedFoveationKey, !EyeTrackedFoveation);
-
-        [MenuItem(EyeTrackedFoveationMenu, true)]
-        private static bool ValidateEyeTrackedFoveation()
-        {
-            Menu.SetChecked(EyeTrackedFoveationMenu, EyeTrackedFoveation);
-            return true;
-        }
-
-        // Each Android-only OpenXR optimization can be switched off for a build to
-        // find which one causes an artifact. All default to on (current behavior).
-        private const string FeatureMenuRoot = "EarthVR/Steam Frame/Android Features/";
-        private const string FoveationMenu = FeatureMenuRoot + "Foveated Rendering";
-        private const string RenderRegionsMenu = FeatureMenuRoot + "Render Regions + Symmetric Projection";
-        private const string BufferDiscardsMenu = FeatureMenuRoot + "Buffer Discards";
-        private const string LateLatchingMenu = FeatureMenuRoot + "Late Latching";
-        private const string SrpFoveationMenu = FeatureMenuRoot + "SRP Foveation API (off = Legacy)";
-
-        private static bool GetFeature(string key) => EditorPrefs.GetBool("EarthVR.SteamFrame.Feature." + key, true);
-        private static void ToggleFeature(string key) => EditorPrefs.SetBool("EarthVR.SteamFrame.Feature." + key, !GetFeature(key));
-        private static bool CheckFeature(string menu, string key)
-        {
-            Menu.SetChecked(menu, GetFeature(key));
-            return true;
-        }
-
-        internal static bool FoveatedRenderingEnabled => GetFeature("Foveation");
-        internal static bool RenderRegionsEnabled => GetFeature("RenderRegions");
-        internal static bool BufferDiscardsEnabled => GetFeature("BufferDiscards");
-        internal static bool LateLatchingEnabled => GetFeature("LateLatching");
-        internal static bool SrpFoveationApiEnabled => GetFeature("SrpFoveation");
-
-        [MenuItem(FoveationMenu, priority = 40)]
-        private static void ToggleFoveation() => ToggleFeature("Foveation");
-        [MenuItem(FoveationMenu, true)]
-        private static bool ValidateFoveation() => CheckFeature(FoveationMenu, "Foveation");
-
-        [MenuItem(RenderRegionsMenu, priority = 41)]
-        private static void ToggleRenderRegions() => ToggleFeature("RenderRegions");
-        [MenuItem(RenderRegionsMenu, true)]
-        private static bool ValidateRenderRegions() => CheckFeature(RenderRegionsMenu, "RenderRegions");
-
-        [MenuItem(BufferDiscardsMenu, priority = 42)]
-        private static void ToggleBufferDiscards() => ToggleFeature("BufferDiscards");
-        [MenuItem(BufferDiscardsMenu, true)]
-        private static bool ValidateBufferDiscards() => CheckFeature(BufferDiscardsMenu, "BufferDiscards");
-
-        [MenuItem(SrpFoveationMenu, priority = 44)]
-        private static void ToggleSrpFoveation() => ToggleFeature("SrpFoveation");
-        [MenuItem(SrpFoveationMenu, true)]
-        private static bool ValidateSrpFoveation() => CheckFeature(SrpFoveationMenu, "SrpFoveation");
-
-        [MenuItem(LateLatchingMenu, priority = 43)]
-        private static void ToggleLateLatching() => ToggleFeature("LateLatching");
-        [MenuItem(LateLatchingMenu, true)]
-        private static bool ValidateLateLatching() => CheckFeature(LateLatchingMenu, "LateLatching");
-
-        /// <summary>Short code shown in the in-game panel so a headset build can be
-        /// identified: F foveation, R render regions + symmetric projection,
-        /// B buffer discards, L late latching, E eye-tracked foveation, S SRP
-        /// foveation API instead of Legacy (1 = on).</summary>
-        internal static string FeatureTag() =>
-            $"F{(FoveatedRenderingEnabled ? 1 : 0)}R{(RenderRegionsEnabled ? 1 : 0)}" +
-            $"B{(BufferDiscardsEnabled ? 1 : 0)}L{(LateLatchingEnabled ? 1 : 0)}E{(EyeTrackedFoveation ? 1 : 0)}" +
-            $"S{(SrpFoveationApiEnabled ? 1 : 0)}";
-
-        [MenuItem(ForcePerformanceMenu, priority = 30)]
-        private static void ToggleForcePerformanceFeatures() =>
-            EditorPrefs.SetBool(ForcePerformanceKey, !ForcePerformanceFeatures);
-
-        [MenuItem(ForcePerformanceMenu, true)]
-        private static bool ValidateForcePerformanceFeatures()
-        {
-            Menu.SetChecked(ForcePerformanceMenu, ForcePerformanceFeatures);
-            return true;
-        }
-
         [MenuItem("EarthVR/Steam Frame/Configure Android", priority = 20)]
         public static void ConfigureAndroid()
         {
@@ -181,21 +81,6 @@ namespace EarthVR.Editor
 
         private static void BuildApk(bool development)
         {
-            try
-            {
-                BuildApkCore(development);
-            }
-            finally
-            {
-                // Development builds carry a feature tag in the version string for the in-game
-                // Build line. Put the canonical version back so ProjectSettings.asset is not
-                // left modified (and the tag is never committed by accident).
-                PlayerSettings.bundleVersion = EarthVR.Core.ReleaseBuildStamp.Version;
-            }
-        }
-
-        private static void BuildApkCore(bool development)
-        {
             if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Android, BuildTarget.Android))
             {
                 throw new InvalidOperationException(
@@ -204,9 +89,7 @@ namespace EarthVR.Editor
             }
 
             ConfigureAndroid();
-            PlayerSettings.bundleVersion = development
-                ? EarthVR.Core.ReleaseBuildStamp.Version + "+" + FeatureTag()
-                : EarthVR.Core.ReleaseBuildStamp.Version;
+            PlayerSettings.bundleVersion = EarthVR.Core.ReleaseBuildStamp.Version;
             PlayerSettings.Android.bundleVersionCode = EarthVR.Core.ReleaseBuildStamp.AndroidVersionCode;
             if (!HasSteamFrameControllerProfile())
             {

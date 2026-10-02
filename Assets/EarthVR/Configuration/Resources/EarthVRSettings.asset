@@ -110,12 +110,3 @@ MonoBehaviour:
   standaloneFoveationLevelOverride: 0.25
   pcFlatTileLighting: 0
   standaloneFlatTileLighting: 0
-  testStartEnabled: 1
-  testStartName: Big Ben (test start)
-  testStartLongitude: -0.12458
-  testStartLatitude: 51.50041
-  testStartHeightMeters: 62
-  testStartHeadingDegrees: 0
-  testStartGrounded: 1
-  testStartUserScale: 1
-  testStartUtc: '2026-06-21T10:00:00Z'

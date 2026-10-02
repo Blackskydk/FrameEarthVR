@@ -214,8 +214,8 @@ MonoBehaviour:
   required: 0
   customRuntimeLoaderName: 
   applySettingsOnStartup: 1
-  initialFoveationLevel: 0.5
-  initialUseEyeTracking: 0
+  initialFoveationLevel: 0.25
+  initialUseEyeTracking: 1
 --- !u!114 &-4797779949494108539
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1080,7 +1080,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9225d86dbe80df459396f79903d44df, type: 3}
   m_Name: ValveOpenXRRenderRegionsFeature Android
   m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRRenderRegionsFeature
-  m_enabled: 1
+  m_enabled: 0
   nameUi: 'Valve Utils: Settings for Unity''s Render Regions'
   version: 0.1.0
   featureIdInternal: com.valvesoftware.openxr.utils.render_regions
@@ -1231,9 +1231,9 @@ MonoBehaviour:
   m_depthSubmissionMode: 0
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 1
-  m_symmetricProjection: 1
-  m_optimizeMultiviewRenderRegions: 1
-  m_multiviewRenderRegionsOptimizationMode: 2
+  m_symmetricProjection: 0
+  m_optimizeMultiviewRenderRegions: 0
+  m_multiviewRenderRegionsOptimizationMode: 0
   m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 1
   m_useOpenXRPredictedTime: 1

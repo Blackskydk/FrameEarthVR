@@ -37,19 +37,30 @@ Each run starts at the same place but the user then moves. Try to do the same th
 ## Testing in the headset: TEST TOGGLES
 
 Open the hand menu (left View/menu button) and press the round **TEST TOGGLES** button above the
-Flight/Grounded button. The page has four switches that take effect immediately, plus a live readout
+Flight/Grounded button. The page has six switches that take effect immediately, plus a live readout
 (FPS, frame time, CPU, triangle/draw counts, your scale and altitude):
 
 - **SUN SHADOWS: AUTO / ON / OFF.** AUTO draws shadows only at user scale 4x or below (the setting
   `sunShadowMaxUserScale`); ON forces them at any scale, OFF never draws them.
 - **FLAT TILE LIGHTING: ON / OFF.** Flat ambient light only (no sun shading or shadows).
-- **FOVEATION:** cycles OFF, 0.15, 0.25, 0.50.
+- **FOVEATED RENDERING: ON / OFF.** Turning it back on uses the last strength.
+- **FOVEATION STRENGTH:** cycles 0.15, 0.25, 0.50 (applied immediately when foveation is on).
+- **EYE TRACKING: ON / OFF.** Whether the sharp region follows your gaze (on) or stays fixed (off).
 - **MSAA:** cycles OFF, 2x, 4x. This changes render targets while running; if the game ever crashes or
   flickers when pressing it, note which value you switched to.
 
 Because the headset warms up over a session, compare settings back to back in the same place rather than
 across separate runs: stay put, press one toggle, wait about ten seconds for the numbers to settle, read them,
 press it again. Each change is also written to the session log. Toggles are not remembered between launches.
+
+## Keeping `git status` clean
+
+Android builds write a native build cache into `.utmp/` and Unity rewrites some tracked assets.
+`.utmp/` is now ignored and no longer tracked. Remaining modified files after a build are expected to be
+the OpenXR/XR settings assets under `Assets/XR/` (they follow the **Android Features** switches in the Steam
+Frame menu) and occasionally `Packages/packages-lock.json`. Do not commit them unless you meant to change the
+project's defaults; `git restore <path>` discards them. Development builds no longer leave a feature tag in
+`ProjectSettings/ProjectSettings.asset`.
 
 ## What is applied where
 

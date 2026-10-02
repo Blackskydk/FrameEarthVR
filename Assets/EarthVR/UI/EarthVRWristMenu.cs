@@ -77,13 +77,18 @@ namespace EarthVR.UI
         private WorldSpaceButton _shadowButton;
         private WorldSpaceButton _flatLightButton;
         private WorldSpaceButton _foveationButton;
+        private WorldSpaceButton _strengthButton;
+        private WorldSpaceButton _gazeButton;
+        private Text _strengthLabel;
+        private Text _gazeLabel;
+        private float _lastFoveationLevel = 0.25f;
         private WorldSpaceButton _msaaButton;
         private Text _shadowLabel;
         private Text _flatLightLabel;
         private Text _foveationLabel;
         private Text _msaaLabel;
         private Text _testStatus;
-        private static readonly float[] FoveationSteps = { 0f, 0.15f, 0.25f, 0.5f };
+        private static readonly float[] StrengthSteps = { 0.15f, 0.25f, 0.5f };
         private static readonly int[] MsaaSteps = { 1, 2, 4 };
         private GameObject _keyboardPanel;
         private GameObject _resultsPanel;
@@ -526,12 +531,14 @@ namespace EarthVR.UI
             title.fontStyle = FontStyle.Bold;
             title.color = AccentColor;
 
-            var size = new Vector2(560f, 64f);
-            _shadowButton = CreateStateButton(_testPanel.transform, "Sun shadows", new Vector2(0f, 320f), CycleShadows, size, out _shadowLabel);
-            _flatLightButton = CreateStateButton(_testPanel.transform, "Flat tile lighting", new Vector2(0f, 240f), ToggleFlatLighting, size, out _flatLightLabel);
-            _foveationButton = CreateStateButton(_testPanel.transform, "Foveation", new Vector2(0f, 160f), CycleFoveation, size, out _foveationLabel);
-            _msaaButton = CreateStateButton(_testPanel.transform, "MSAA", new Vector2(0f, 80f), CycleMsaa, size, out _msaaLabel);
-            _testStatus = CreateText(_testPanel.transform, new Vector2(0f, -150f), new Vector2(540f, 340f), 20, TextAnchor.UpperLeft);
+            var size = new Vector2(560f, 58f);
+            _shadowButton = CreateStateButton(_testPanel.transform, "Sun shadows", new Vector2(0f, 332f), CycleShadows, size, out _shadowLabel);
+            _flatLightButton = CreateStateButton(_testPanel.transform, "Flat tile lighting", new Vector2(0f, 264f), ToggleFlatLighting, size, out _flatLightLabel);
+            _foveationButton = CreateStateButton(_testPanel.transform, "Foveation", new Vector2(0f, 196f), ToggleFoveation, size, out _foveationLabel);
+            _strengthButton = CreateStateButton(_testPanel.transform, "Foveation strength", new Vector2(0f, 128f), CycleFoveationStrength, size, out _strengthLabel);
+            _gazeButton = CreateStateButton(_testPanel.transform, "Eye tracking", new Vector2(0f, 60f), ToggleGaze, size, out _gazeLabel);
+            _msaaButton = CreateStateButton(_testPanel.transform, "MSAA", new Vector2(0f, -8f), CycleMsaa, size, out _msaaLabel);
+            _testStatus = CreateText(_testPanel.transform, new Vector2(0f, -190f), new Vector2(540f, 280f), 20, TextAnchor.UpperLeft);
             _testStatus.color = MutedTextColor;
             CreateButton(_testPanel.transform, "Back to controls", new Vector2(0f, -400f), ShowMain, new Vector2(480f, 54f));
         }
@@ -561,9 +568,16 @@ namespace EarthVR.UI
             _flatLightButton.SetNormalColor(flat ? EnabledColor : DisabledColor);
 
             var level = RuntimeQuality.CurrentFoveationLevel();
-            _foveationLabel.text = "FOVEATION: " +
-                (level < 0f ? "n/a" : level <= 0.001f ? "OFF" : level.ToString("0.00"));
+            if (level > 0.001f)
+                _lastFoveationLevel = level;
+            _foveationLabel.text = "FOVEATED RENDERING: " + (level < 0f ? "n/a" : level <= 0.001f ? "OFF" : "ON");
             _foveationButton.SetNormalColor(level > 0.001f ? EnabledColor : DisabledColor);
+            _strengthLabel.text = "FOVEATION STRENGTH: " + _lastFoveationLevel.ToString("0.00");
+            _strengthButton.SetNormalColor(level > 0.001f ? EnabledColor : DisabledColor);
+
+            var gaze = RuntimeQuality.IsGazeAllowed();
+            _gazeLabel.text = "EYE TRACKING: " + (gaze == null ? "n/a" : gaze.Value ? "ON" : "OFF");
+            _gazeButton.SetNormalColor(gaze == true ? EnabledColor : DisabledColor);
 
             var msaa = RuntimeQuality.CurrentMsaa;
             _msaaLabel.text = "MSAA: " + (msaa <= 1 ? "OFF" : msaa + "x");
@@ -601,18 +615,45 @@ namespace EarthVR.UI
             RefreshTestPanel();
         }
 
-        private void CycleFoveation()
+        /// <summary>Turns foveated rendering off, or back on at the last strength used.</summary>
+        private void ToggleFoveation()
         {
             var current = RuntimeQuality.CurrentFoveationLevel();
             if (current < 0f)
                 return;
-            var nearest = 0;
-            for (var i = 1; i < FoveationSteps.Length; i++)
+            if (current > 0.001f)
             {
-                if (Mathf.Abs(FoveationSteps[i] - current) < Mathf.Abs(FoveationSteps[nearest] - current))
+                _lastFoveationLevel = current;
+                RuntimeQuality.SetFoveationLevelNow(0f);
+            }
+            else
+            {
+                RuntimeQuality.SetFoveationLevelNow(_lastFoveationLevel);
+            }
+            RefreshTestPanel();
+        }
+
+        private void CycleFoveationStrength()
+        {
+            var nearest = 0;
+            for (var i = 1; i < StrengthSteps.Length; i++)
+            {
+                if (Mathf.Abs(StrengthSteps[i] - _lastFoveationLevel) < Mathf.Abs(StrengthSteps[nearest] - _lastFoveationLevel))
                     nearest = i;
             }
-            RuntimeQuality.SetFoveationLevelNow(FoveationSteps[(nearest + 1) % FoveationSteps.Length]);
+            _lastFoveationLevel = StrengthSteps[(nearest + 1) % StrengthSteps.Length];
+            // Only apply it now if foveation is on; otherwise it is used when turned back on.
+            if (RuntimeQuality.CurrentFoveationLevel() > 0.001f)
+                RuntimeQuality.SetFoveationLevelNow(_lastFoveationLevel);
+            RefreshTestPanel();
+        }
+
+        private void ToggleGaze()
+        {
+            var gaze = RuntimeQuality.IsGazeAllowed();
+            if (gaze == null)
+                return;
+            RuntimeQuality.SetGazeAllowed(!gaze.Value);
             RefreshTestPanel();
         }
 

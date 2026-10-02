@@ -181,6 +181,21 @@ namespace EarthVR.Editor
 
         private static void BuildApk(bool development)
         {
+            try
+            {
+                BuildApkCore(development);
+            }
+            finally
+            {
+                // Development builds carry a feature tag in the version string for the in-game
+                // Build line. Put the canonical version back so ProjectSettings.asset is not
+                // left modified (and the tag is never committed by accident).
+                PlayerSettings.bundleVersion = EarthVR.Core.ReleaseBuildStamp.Version;
+            }
+        }
+
+        private static void BuildApkCore(bool development)
+        {
             if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Android, BuildTarget.Android))
             {
                 throw new InvalidOperationException(

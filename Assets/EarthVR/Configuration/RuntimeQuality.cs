@@ -67,6 +67,50 @@ namespace EarthVR.Configuration
             SessionLog.Info($"EarthVR MSAA set to {msaa}x");
         }
 
+        /// <summary>Whether eye-tracked foveation is allowed right now, or null when the flag cannot
+        /// be read. Read by name so a missing property cannot break the build.</summary>
+        public static bool? IsGazeAllowed()
+        {
+            var displays = new List<XRDisplaySubsystem>();
+            SubsystemManager.GetSubsystems(displays);
+            if (displays.Count == 0 || !displays[0].running)
+                return null;
+            try
+            {
+                var property = typeof(XRDisplaySubsystem).GetProperty("foveatedRenderingFlags");
+                var value = property?.GetValue(displays[0], null);
+                return value == null ? (bool?)null : value.ToString().Contains("GazeAllowed");
+            }
+            catch (System.Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>Allows or forbids eye-tracked foveation while running.</summary>
+        public static void SetGazeAllowed(bool allowed)
+        {
+            var displays = new List<XRDisplaySubsystem>();
+            SubsystemManager.GetSubsystems(displays);
+            try
+            {
+                var property = typeof(XRDisplaySubsystem).GetProperty("foveatedRenderingFlags");
+                if (property == null)
+                    return;
+                var value = System.Enum.Parse(property.PropertyType, allowed ? "GazeAllowed" : "None");
+                foreach (var display in displays)
+                {
+                    if (display != null && display.running)
+                        property.SetValue(display, value, null);
+                }
+                SessionLog.Info($"EarthVR eye-tracked foveation {(allowed ? "on" : "off")}");
+            }
+            catch (System.Exception exception)
+            {
+                SessionLog.Write($"EarthVR eye-tracking toggle failed: {exception.Message}");
+            }
+        }
+
         /// <summary>The foveation level now in effect, or -1 when no XR display is running.</summary>
         public static float CurrentFoveationLevel()
         {

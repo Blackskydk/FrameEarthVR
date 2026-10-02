@@ -105,6 +105,7 @@ MonoBehaviour:
   standaloneBloom: 0
   pcSunShadows: 1
   standaloneSunShadows: 1
+  sunShadowMaxUserScale: 4
   standaloneEdgePreloadMargin: 1.1
   standaloneFoveationLevelOverride: 0.25
   pcFlatTileLighting: 0

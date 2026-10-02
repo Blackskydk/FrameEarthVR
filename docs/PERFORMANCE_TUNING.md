@@ -24,9 +24,15 @@ or by unchecking the asset field.
 4. **Send me** `Logs\frame-report-<time>-baseline.txt` plus what you saw.
 5. **Each test** is the same command with a new `-Label` and an `-Override` (each override
    replaces the previous one; do not stack them across runs):
-   - `-Label free-quality -Override '{"standaloneFoveationLevelOverride": 0, "standaloneMsaa": 4}'`
-   - `-Label flat-light -Override '{"standaloneFlatTileLighting": true}'`
-6. **Finish** with `-Label done -ClearOverride`.
+   - `-Label shadows-off -Override '{"standaloneSunShadows": false}'`
+   - `-Label no-colliders -Override '{"createPhysicsMeshes": false}'`
+6. **Repeat the baseline last** (`-Label baseline-again -ClearOverride`). If it is slower than the first
+   baseline, the headset is warming up and later runs are penalised regardless of settings.
+7. **Finish** with `-Label done -ClearOverride`.
+
+Each run starts at the same place but the user then moves. Try to do the same thing each time
+(look at the tower, then the Thames) and avoid pushing the stick while looking up, which grows you
+(grounded scaling) and changes what is rendered; the report records your scale and altitude.
 
 ## What is applied where
 

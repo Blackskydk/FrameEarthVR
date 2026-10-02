@@ -95,6 +95,30 @@ if (($connectOutput -join "`n") -notmatch '(?im)^(already )?connected to ') {
     throw "Could not connect to '$serial'. Launch Lepton Development on the headset and check the address."
 }
 
+function Get-ThermalSnapshot {
+    # Best effort: the headset may hide some of these. A hot device slows down, which
+    # makes later runs look worse regardless of the settings under test.
+    $snapshot = @()
+    try {
+        $battery = @(& $adb -s $serial shell dumpsys battery) | Where-Object { $_ -match 'level|temperature' } | ForEach-Object { $_.Trim() }
+        $snapshot += "battery: $($battery -join '; ')  (temperature is in tenths of a degree C)"
+    }
+    catch {
+        $snapshot += 'battery: unavailable'
+    }
+    try {
+        $zones = @(& $adb -s $serial shell 'for z in /sys/class/thermal/thermal_zone*; do echo $(cat $z/type) $(cat $z/temp); done' 2>$null)
+        if ($zones.Count -gt 0) {
+            $snapshot += 'thermal zones (type, millidegrees C):'
+            $snapshot += ($zones | ForEach-Object { "  $_" })
+        }
+    }
+    catch {
+        $snapshot += 'thermal zones: unavailable'
+    }
+    return $snapshot
+}
+
 # Which build is installed, and which runtime permissions does it hold?
 $packageInfo = @(& $adb -s $serial shell dumpsys package $package)
 $packageLines = @($packageInfo | Where-Object { $_ -match 'versionName=|versionCode=|lastUpdateTime=' } | Select-Object -First 3 | ForEach-Object { $_.Trim() })
@@ -134,6 +158,8 @@ if ($Override) {
     Write-Host "Pushed settings-override.json: $Override"
 }
 
+$thermalBefore = Get-ThermalSnapshot
+
 if (-not $NoRestart) {
     # A larger log buffer: the default one can overwrite the startup lines.
     & $adb -s $serial logcat -G 16M | Out-Null
@@ -157,6 +183,7 @@ if (-not $NoRestart) {
 Write-Host "Collecting for $Seconds seconds. Put the headset on, accept any permission dialog (the game waits for it), and go to the place with the problem."
 Start-Sleep -Seconds $Seconds
 
+$thermalAfter = Get-ThermalSnapshot
 $stillRunning = (@(& $adb -s $serial shell pidof $package) -join '').Trim()
 if (-not $stillRunning) {
     Write-Warning 'The game is not running any more: it exited or crashed during the capture.'
@@ -212,6 +239,12 @@ $report += "Device: $model, Android $androidRelease"
 $report += "Game still running at the end: $runningText"
 $report += 'Runtime permissions:'
 $report += ($permissionLines | ForEach-Object { "  $_" })
+$report += ''
+$report += '=== DEVICE THERMAL STATE ==='
+$report += 'Before launch:'
+$report += ($thermalBefore | ForEach-Object { "  $_" })
+$report += 'After the capture:'
+$report += ($thermalAfter | ForEach-Object { "  $_" })
 $report += ''
 $report += '=== SESSION LOG (written by the game) ==='
 $report += $sessionLines

@@ -28,6 +28,7 @@ namespace EarthVR.Sky
         private EarthVRRig _rig;
         private NavigationController _navigation;
         private Light _sunLight;
+        private float _lastDaylight;
         private Light _moonLight;
         private Material _skyMaterial;
         private Material _sunMaterial;
@@ -188,6 +189,7 @@ namespace EarthVR.Sky
                 return;
 
             EnsureSolarPath();
+            UpdateShadowsForScale();
             var triggerHand = ActiveTriggerHand();
             if (_dragHand != null)
             {
@@ -425,6 +427,22 @@ namespace EarthVR.Sky
             _utcTime = _solarPathTimes[bestIndex];
         }
 
+        private LightShadows SunShadowMode(float daylight) =>
+            _settings.SunShadowsEnabled && daylight > 0.04f && _navigation.UserScale <= _settings.sunShadowMaxUserScale
+                ? LightShadows.Soft
+                : LightShadows.None;
+
+        /// <summary>User scale changes continuously, so re-evaluate whether the sun's
+        /// shadow pass is worth drawing (it redraws every tile) each frame.</summary>
+        private void UpdateShadowsForScale()
+        {
+            if (_sunLight == null || _settings.FlatTileLightingEnabled)
+                return;
+            var wanted = SunShadowMode(_lastDaylight);
+            if (_sunLight.shadows != wanted)
+                _sunLight.shadows = wanted;
+        }
+
         private void ApplyEnvironment()
         {
             var llh = _navigation.LongitudeLatitudeHeight;
@@ -448,9 +466,8 @@ namespace EarthVR.Sky
                 new Color(1f, 0.20f, 0.055f),
                 new Color(1f, 0.97f, 0.88f),
                 highSun);
-            _sunLight.shadows = _settings.SunShadowsEnabled && daylight > 0.04f
-                ? LightShadows.Soft
-                : LightShadows.None;
+            _lastDaylight = daylight;
+            _sunLight.shadows = SunShadowMode(daylight);
 
             _moonLight.transform.rotation = Quaternion.LookRotation(-moonDirection, Vector3.up);
             _moonLight.intensity = 0.075f * night;

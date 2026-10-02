@@ -154,6 +154,8 @@ namespace EarthVR.Configuration
         [Tooltip("Daytime dynamic sun shadows near the viewer. Photoreal tiles already carry baked shadows.")]
         public bool pcSunShadows = true;
         public bool standaloneSunShadows = true;
+        [Tooltip("Sun shadows are only drawn while the user scale is at or below this. The shadow distance is fixed in scene units, so at giant scale the shadow map spans kilometres, is too coarse to see, and still redraws every tile.")]
+        [Min(1f)] public float sunShadowMaxUserScale = 4f;
         [Tooltip("Loading margin around the visible view for the headset-only terrain edge preload camera. Smaller loads fewer unseen tiles.")]
         [Range(1f, 1.5f)] public float standaloneEdgePreloadMargin = 1.1f;
         [Tooltip("Foveation level (0-1) applied once XR is running; higher is stronger. Negative leaves the build-time level untouched.")]
@@ -182,6 +184,7 @@ namespace EarthVR.Configuration
             pcMsaa = Mathf.Clamp(pcMsaa, 0, 8);
             standaloneMsaa = Mathf.Clamp(standaloneMsaa, 0, 4);
             standaloneEdgePreloadMargin = Mathf.Clamp(standaloneEdgePreloadMargin, 1f, 1.5f);
+            sunShadowMaxUserScale = Mathf.Max(1f, sunShadowMaxUserScale);
             standaloneFoveationLevelOverride = Mathf.Clamp(standaloneFoveationLevelOverride, -1f, 1f);
         }
 

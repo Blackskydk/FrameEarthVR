@@ -43,6 +43,7 @@ namespace EarthVR.Core
                 ? Instantiate(settingsAsset)
                 : EarthVRSettings.CreateRuntimeDefaults();
             settings.hideFlags = HideFlags.DontSave;
+            SessionLog.Begin();
             SettingsOverrides.TryApplyFromDisk(settings);
             SelectStartingPlace(settings);
 
@@ -58,10 +59,10 @@ namespace EarthVR.Core
             QualitySettings.vSyncCount = 0;
             QualitySettings.maxQueuedFrames = 1;
             RuntimeQuality.Apply(settings);
+            SessionLog.WriteConfig(settings);
             if (Application.isMobilePlatform)
                 StartCoroutine(RuntimeQuality.ApplyFoveationLevel(settings.standaloneFoveationLevelOverride));
             StartCoroutine(XrDiagnostics.LogStartup());
-            StartCoroutine(XrDiagnostics.LogPerformance(10f));
 #if UNITY_6000_2_OR_NEWER
             if (OpenXRSettings.Instance != null)
                 OpenXRSettings.Instance.useOpenXRPredictedTime = true;
@@ -155,6 +156,14 @@ namespace EarthVR.Core
             credentialSetup.Initialize(rig, input, earth, navigation, scaling);
             menu.SetCredentialSetup(credentialSetup);
             menu.SetUpdateChecker(gameObject.AddComponent<ReleaseUpdateChecker>());
+
+            StartCoroutine(XrDiagnostics.LogPerformance(10f, () =>
+            {
+                var llh = navigation.LongitudeLatitudeHeight;
+                return $"at {llh.x:F4},{llh.y:F4} alt {navigation.AltitudeMeters:N0} m " +
+                       $"scale {navigation.UserScale:N1}x mode {navigation.State.Mode} " +
+                       $"tiles {earth.Tileset.ComputeLoadProgress():N0}%";
+            }));
         }
 
         private static void SelectStartingPlace(EarthVRSettings settings)

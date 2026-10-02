@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using EarthVR.Core;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
@@ -76,7 +77,7 @@ namespace EarthVR.Configuration
                 if (display != null && display.running)
                     display.foveatedRenderingLevel = level;
             }
-            Debug.Log($"EarthVR foveation level set to {level:0.00}");
+            SessionLog.Info($"EarthVR foveation level set to {level:0.00}");
         }
 
         private static readonly FrameTiming[] LatestTiming = new FrameTiming[1];

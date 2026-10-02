@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using EarthVR.Core;
 using UnityEngine;
 
 namespace EarthVR.Configuration
@@ -15,6 +16,9 @@ namespace EarthVR.Configuration
         public const string FileName = "settings-override.json";
         private const long MaximumBytes = 64 * 1024;
 
+        /// <summary>The JSON text of the override that was applied this launch, or null.</summary>
+        public static string LastOverrideJson { get; private set; }
+
         public static string FilePath => Path.Combine(Application.persistentDataPath, "EarthVR", FileName);
 
         /// <summary>Applies the override file if one exists. Never throws:
@@ -28,7 +32,7 @@ namespace EarthVR.Configuration
                     return false;
                 if (!TryApply(settings, File.ReadAllText(path)))
                     return false;
-                Debug.Log($"EarthVR settings override applied from {path}");
+                SessionLog.Info($"EarthVR settings override applied from {path}");
                 return true;
             }
             catch (Exception exception)
@@ -52,6 +56,7 @@ namespace EarthVR.Configuration
                 return false;
             }
             settings.ClampToSafeRanges();
+            LastOverrideJson = json.Trim();
             return true;
         }
     }

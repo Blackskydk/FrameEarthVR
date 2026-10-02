@@ -1,30 +1,46 @@
 <#
 .SYNOPSIS
-Collects debugging logs from the Steam Frame in one step.
+Captures a self-describing report from the Steam Frame for debugging.
 
 .DESCRIPTION
-Connects over adb, optionally pushes a settings-override.json (or removes it),
-relaunches Frame Earth VR, waits, then saves the device log to the Logs folder:
-  frame-logcat-<time>.txt            the complete log
-  frame-logcat-<time>-filtered.txt   only lines about EarthVR, Unity, OpenXR, foveation,
-                                     eye/gaze, Valve/Lepton and crashes (attach this one)
+Connects over adb, optionally pushes a settings-override.json (or removes it) and
+grants the game's pending runtime permissions, relaunches Frame Earth VR, waits, then
+writes ONE report to the Logs folder:
+
+  frame-report-<time>-<label>.txt
+
+The report records the exact parameters used, the override file on the headset, the
+installed version, the game's own session log (the settings it booted with, XR runtime
+facts and a performance line every 10 seconds) and the relevant device log lines.
+Attach that single file to the chat. The complete device log is saved alongside it.
+
+.PARAMETER Label
+A short name for the test, e.g. london-flat-lighting. It is written into the report.
+
+.PARAMETER Override
+A JSON object of settings to push before launching, e.g. '{"standaloneMsaa": 1}'.
+
+.PARAMETER GrantPermissions
+Grants the game's pending runtime permissions over adb so no dialog blocks startup.
 
 .EXAMPLE
-.\scripts\capture-frame-logs.ps1 -DeviceHost 192.168.50.138
+.\scripts\capture-frame-logs.ps1 -DeviceHost 192.168.50.138 -Label baseline
 
 .EXAMPLE
-.\scripts\capture-frame-logs.ps1 -DeviceHost 192.168.50.138 -Override '{"standaloneMsaa": 1}'
+.\scripts\capture-frame-logs.ps1 -DeviceHost 192.168.50.138 -Label flat-light -Override '{"standaloneFlatTileLighting": true}'
 
 .EXAMPLE
-.\scripts\capture-frame-logs.ps1 -DeviceHost 192.168.50.138 -ClearOverride
+.\scripts\capture-frame-logs.ps1 -DeviceHost 192.168.50.138 -ClearOverride -Label baseline
 #>
 [CmdletBinding()]
 param(
     [string]$DeviceHost = 'frame',
     [switch]$Usb,
     [int]$Seconds = 120,
+    [string]$Label,
     [string]$Override,
     [switch]$ClearOverride,
+    [switch]$GrantPermissions,
     [switch]$NoRestart
 )
 
@@ -33,6 +49,7 @@ $ErrorActionPreference = 'Stop'
 $package = 'com.frameearthvr.app'
 $dataFolder = "/sdcard/Android/data/$package/files/EarthVR"
 $overridePath = "$dataFolder/settings-override.json"
+$sessionLogPath = "$dataFolder/session-log.txt"
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $projectVersionText = Get-Content -LiteralPath (Join-Path $projectRoot 'ProjectSettings\ProjectVersion.txt') -Raw
@@ -78,7 +95,7 @@ if (($connectOutput -join "`n") -notmatch '(?im)^(already )?connected to ') {
     throw "Could not connect to '$serial'. Launch Lepton Development on the headset and check the address."
 }
 
-# Which build is installed?
+# Which build is installed, and which runtime permissions does it hold?
 $packageInfo = @(& $adb -s $serial shell dumpsys package $package)
 $packageLines = @($packageInfo | Where-Object { $_ -match 'versionName=|versionCode=|lastUpdateTime=' } | Select-Object -First 3 | ForEach-Object { $_.Trim() })
 if ($packageLines.Count -eq 0) {
@@ -87,12 +104,22 @@ if ($packageLines.Count -eq 0) {
 else {
     $packageLines | ForEach-Object { Write-Host "Installed: $_" }
 }
+$permissionLines = @($packageInfo | Where-Object { $_ -match '^\s*[A-Za-z0-9_.]+:\s*granted=' } | ForEach-Object { $_.Trim() })
+if ($GrantPermissions) {
+    foreach ($line in $permissionLines) {
+        if ($line -match '^([A-Za-z0-9_.]+):\s*granted=false') {
+            $permissionName = $Matches[1]
+            Write-Host "Granting $permissionName"
+            & $adb -s $serial shell pm grant $package $permissionName | Out-Null
+        }
+    }
+    $packageInfo = @(& $adb -s $serial shell dumpsys package $package)
+    $permissionLines = @($packageInfo | Where-Object { $_ -match '^\s*[A-Za-z0-9_.]+:\s*granted=' } | ForEach-Object { $_.Trim() })
+}
 
 # Optional settings override (read by the game at launch).
-$overrideState = 'unchanged'
 if ($ClearOverride) {
     & $adb -s $serial shell rm -f $overridePath | Out-Null
-    $overrideState = 'cleared'
     Write-Host 'Removed settings-override.json from the headset.'
 }
 if ($Override) {
@@ -104,13 +131,11 @@ if ($Override) {
     if ($LASTEXITCODE -ne 0) {
         throw "Could not push the override to $overridePath. Tell Claude the exact error above."
     }
-    $overrideState = $Override
     Write-Host "Pushed settings-override.json: $Override"
 }
 
 if (-not $NoRestart) {
-    # A larger log buffer: the game logs hundreds of warnings a minute and the default
-    # buffer overwrites the startup lines. Ignored if the device refuses.
+    # A larger log buffer: the default one can overwrite the startup lines.
     & $adb -s $serial logcat -G 16M | Out-Null
     & $adb -s $serial logcat -c
     & $adb -s $serial shell am force-stop $package
@@ -129,44 +154,84 @@ if (-not $NoRestart) {
     Write-Host "Relaunched $launcherActivity."
 }
 
-Write-Host "Collecting for $Seconds seconds. Put the headset on, ACCEPT any permission dialog that appears (the game waits for it), and go to the place with the problem."
+Write-Host "Collecting for $Seconds seconds. Put the headset on, accept any permission dialog (the game waits for it), and go to the place with the problem."
 Start-Sleep -Seconds $Seconds
 
-$stillRunning = @(& $adb -s $serial shell pidof $package) -join ''
-if (-not $stillRunning.Trim()) {
+$stillRunning = (@(& $adb -s $serial shell pidof $package) -join '').Trim()
+if (-not $stillRunning) {
     Write-Warning 'The game is not running any more: it exited or crashed during the capture.'
 }
 
 $logDirectory = Join-Path $projectRoot 'Logs'
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$fullPath = Join-Path $logDirectory "frame-logcat-$stamp.txt"
-$filteredPath = Join-Path $logDirectory "frame-logcat-$stamp-filtered.txt"
+$safeLabel = if ($Label) { '-' + ($Label -replace '[^A-Za-z0-9_-]', '_') } else { '' }
+$reportPath = Join-Path $logDirectory "frame-report-$stamp$safeLabel.txt"
+$fullPath = Join-Path $logDirectory "frame-logcat-$stamp$safeLabel.txt"
+$crashPath = Join-Path $logDirectory "frame-logcat-$stamp$safeLabel-crash.txt"
 
 & $adb -s $serial logcat -d -v threadtime | Out-File -FilePath $fullPath -Encoding utf8
-$crashPath = Join-Path $logDirectory "frame-logcat-$stamp-crash.txt"
 & $adb -s $serial logcat -b crash -d -v threadtime | Out-File -FilePath $crashPath -Encoding utf8
 
-$pattern = 'EarthVR|Unity|OpenXR|XR_|foveat|gaze|FDM|VALVE|Valve|Lepton|libVkLayer|AndroidRuntime|FATAL|crash|DEBUG|Fatal signal|SIGSEGV|SIGABRT|backtrace|am_crash|am_proc_died|ANR'
-$header = @(
-    "Captured: $stamp",
-    "Package: $($packageLines -join ' | ')",
-    "Settings override: $overrideState",
-    ''
-)
+# Facts about the device and the override that is actually on it now.
+$model = (@(& $adb -s $serial shell getprop ro.product.model) -join '').Trim()
+$androidRelease = (@(& $adb -s $serial shell getprop ro.build.version.release) -join '').Trim()
+$deviceOverride = 'none'
+try {
+    $overrideOnDevice = (@(& $adb -s $serial shell cat $overridePath 2>$null) -join ' ').Trim()
+    if ($overrideOnDevice -and $overrideOnDevice -notmatch 'No such file') { $deviceOverride = $overrideOnDevice }
+}
+catch {
+    $deviceOverride = 'none'
+}
+
+# The game's own log for this launch.
+$sessionLocal = Join-Path ([IO.Path]::GetTempPath()) "frame-session-log-$stamp.txt"
+& $adb -s $serial pull $sessionLogPath $sessionLocal | Out-Null
+if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $sessionLocal)) {
+    $sessionLines = @(Get-Content -LiteralPath $sessionLocal)
+}
+else {
+    $sessionLines = @('(the session log could not be pulled; the installed build may predate it, or the game never got past the permission dialog)')
+}
+
+$pattern = 'EarthVR|\[XR\]|OpenXR|XR_|foveat|gaze|FDM|VALVE|Valve|Lepton|libVkLayer|AndroidRuntime|FATAL|Fatal signal|SIGSEGV|SIGABRT|backtrace|am_crash|am_proc_died|ANR|REQUEST_PERMISSIONS'
 $filteredLines = @(Select-String -Path $fullPath -Pattern $pattern | ForEach-Object { $_.Line })
-($header + $filteredLines) | Set-Content -Path $filteredPath -Encoding utf8
+
+$labelText = if ($Label) { $Label } else { '(none)' }
+$overrideText = if ($Override) { $Override } else { '(none)' }
+$runningText = if ($stillRunning) { 'yes' } else { 'NO - exited or crashed' }
+$report = @()
+$report += '=== FRAME EARTH VR CAPTURE REPORT ==='
+$report += "Label: $labelText"
+$report += "Captured: $stamp (PC time)"
+$report += "Script parameters: DeviceHost=$DeviceHost Usb=$($Usb.IsPresent) Seconds=$Seconds Override=$overrideText ClearOverride=$($ClearOverride.IsPresent) GrantPermissions=$($GrantPermissions.IsPresent) NoRestart=$($NoRestart.IsPresent)"
+$report += "Override file on the headset at capture time: $deviceOverride"
+$report += "Installed: $($packageLines -join ' | ')"
+$report += "Device: $model, Android $androidRelease"
+$report += "Game still running at the end: $runningText"
+$report += 'Runtime permissions:'
+$report += ($permissionLines | ForEach-Object { "  $_" })
+$report += ''
+$report += '=== SESSION LOG (written by the game) ==='
+$report += $sessionLines
+$report += ''
+$report += '=== DEVICE LOG (filtered) ==='
+$report += $filteredLines
+$report | Set-Content -Path $reportPath -Encoding UTF8
 
 Write-Host ''
-Write-Host "Saved: $filteredPath ($($filteredLines.Count) lines)"
-Write-Host "Saved: $fullPath"
+Write-Host "Report: $reportPath"
+Write-Host "Full device log: $fullPath"
 $crashLines = @(Select-String -Path $fullPath -Pattern 'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|am_crash' | ForEach-Object { $_.Line })
 if ($crashLines.Count -gt 0) {
     Write-Host ''
-    Write-Warning 'The log contains crash markers. First lines:'
+    Write-Warning 'The device log contains crash markers. First lines:'
     $crashLines | Select-Object -First 6 | ForEach-Object { Write-Host $_ }
-    Write-Host "Crash buffer saved: $crashPath (attach it too)"
+    Write-Host "Crash buffer: $crashPath (attach it too)"
 }
-Write-Host 'Attach the -filtered file to the chat. Key lines start with "EarthVR".'
 Write-Host ''
-Select-String -Path $filteredPath -Pattern 'EarthVR' | Select-Object -First 12 | ForEach-Object { Write-Host $_.Line }
+Write-Host 'Last performance lines from the game:'
+$sessionLines | Where-Object { $_ -match 'perf avg' } | Select-Object -Last 3 | ForEach-Object { Write-Host $_ }
+Write-Host ''
+Write-Host 'Attach the report file to the chat.'

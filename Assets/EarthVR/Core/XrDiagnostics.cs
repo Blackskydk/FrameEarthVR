@@ -10,10 +10,10 @@ using UnityEngine.XR.OpenXR;
 namespace EarthVR.Core
 {
     /// <summary>
-    /// Writes XR runtime facts and (development builds only) periodic performance
-    /// lines to the Unity log, so a captured logcat shows which OpenXR extensions
-    /// the runtime actually enabled (foveation, eye tracking) and how the display
-    /// is configured. Lines start with "EarthVR-XR".
+    /// Writes XR runtime facts and periodic performance lines to the session log
+    /// and the Unity log, so a capture shows which OpenXR extensions the runtime
+    /// enabled (foveation, eye tracking), how the display is configured and how the
+    /// frame is spent. Lines start with "EarthVR-XR".
     /// </summary>
     public static class XrDiagnostics
     {
@@ -47,30 +47,60 @@ namespace EarthVR.Core
             }
             catch (Exception exception)
             {
-                Debug.LogWarning($"{Tag} diagnostics failed: {exception.Message}");
+                SessionLog.Write($"{Tag} diagnostics failed: {exception.Message}");
             }
         }
 
-        /// <summary>Development headset builds only: one line every few seconds
-        /// with frame time, CPU/GPU split and render settings.</summary>
-        public static IEnumerator LogPerformance(float intervalSeconds)
+        /// <summary>One line every few seconds: average and worst frame time over
+        /// the window, the CPU/GPU split, render counters (development builds),
+        /// Cesium collider warnings and where in the world the user is.</summary>
+        public static IEnumerator LogPerformance(float intervalSeconds, Func<string> context)
         {
-            if (!Debug.isDebugBuild || Application.isEditor)
+            if (Application.isEditor)
                 yield break;
 
-            _triangles = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Triangles Count");
-            _drawCalls = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count");
-            _batches = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Batches Count");
+            if (Debug.isDebugBuild)
+            {
+                _triangles = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Triangles Count");
+                _drawCalls = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count");
+                _batches = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Batches Count");
+            }
+
             var next = Time.unscaledTime + intervalSeconds;
+            var sum = 0f;
+            var count = 0;
+            var worst = 0f;
             while (true)
             {
                 RuntimeQuality.SampleFrameTiming();
+                var delta = Time.unscaledDeltaTime;
+                sum += delta;
+                count++;
+                if (delta > worst)
+                    worst = delta;
+
                 if (Time.unscaledTime >= next)
                 {
                     next = Time.unscaledTime + intervalSeconds;
-                    Debug.Log(
-                        $"{Tag} perf frame={Time.unscaledDeltaTime * 1000f:0.0}ms " +
-                        $"{RuntimeQuality.DescribeFrameTiming()} | {DescribeRenderStats()} | {RuntimeQuality.Describe()}");
+                    var average = count > 0 ? sum / count : 0f;
+                    string where;
+                    try
+                    {
+                        where = context != null ? context() : string.Empty;
+                    }
+                    catch (Exception)
+                    {
+                        where = "position n/a";
+                    }
+
+                    SessionLog.Info(
+                        $"{Tag} perf avg={average * 1000f:0.0}ms ({(average > 0f ? 1f / average : 0f):0} fps) " +
+                        $"worst={worst * 1000f:0.0}ms | {RuntimeQuality.DescribeFrameTiming()} | " +
+                        $"{DescribeRenderStats()} | colliderWarnings={SessionLog.TakeBakeWarnings()} | " +
+                        $"{RuntimeQuality.Describe()} | {where}");
+                    sum = 0f;
+                    count = 0;
+                    worst = 0f;
                 }
                 yield return null;
             }
@@ -78,15 +108,15 @@ namespace EarthVR.Core
 
         private static void WriteStartupLog(List<XRDisplaySubsystem> displays)
         {
-            Debug.Log(
-                $"{Tag} build={Application.version} unity={Application.unityVersion} device={SystemInfo.deviceModel} " +
-                $"gpu={SystemInfo.graphicsDeviceName} api={SystemInfo.graphicsDeviceType} {SystemInfo.graphicsDeviceVersion}");
-            Debug.Log(
+            SessionLog.Info(
+                $"{Tag} device={SystemInfo.deviceModel} gpu={SystemInfo.graphicsDeviceName} " +
+                $"api={SystemInfo.graphicsDeviceType} {SystemInfo.graphicsDeviceVersion}");
+            SessionLog.Info(
                 $"{Tag} openxr runtime={OpenXRRuntime.name} version={OpenXRRuntime.version} " +
                 $"api={OpenXRRuntime.apiVersion} plugin={OpenXRRuntime.pluginVersion}");
 
             var extensions = new List<string>(OpenXRRuntime.GetEnabledExtensions());
-            Debug.Log($"{Tag} enabled extensions ({extensions.Count}): {string.Join(" ", extensions)}");
+            SessionLog.Info($"{Tag} enabled extensions ({extensions.Count}): {string.Join(" ", extensions)}");
 
             for (var i = 0; i < displays.Count; i++)
             {
@@ -102,7 +132,7 @@ namespace EarthVR.Core
                 }
 
                 var description = XRSettings.eyeTextureDesc;
-                Debug.Log(
+                SessionLog.Info(
                     $"{Tag} display[{i}] running={display.running} foveationLevel={display.foveatedRenderingLevel:0.00} " +
                     $"foveationFlags={(flags != null ? flags.ToString() : "n/a")} layout={display.textureLayout} " +
                     $"eye={description.width}x{description.height} depthBits={description.depthBufferBits} " +

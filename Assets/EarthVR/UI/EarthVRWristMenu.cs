@@ -862,6 +862,7 @@ namespace EarthVR.UI
             builder.AppendLine($"Build {Application.version}");
             builder.Append(_earth.StatusMessage);
             _diagnostics.text = builder.ToString();
+            SessionLog.PanelSnapshot(_diagnostics.text);
         }
 
         /// <summary>Keeps the complete interface in the globe's head-readable
